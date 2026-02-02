@@ -29,12 +29,12 @@ public class MatchQueueService {
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
-    public void joinQueue(Long userId, GameType gameType) {
+    public Optional<Match> joinQueue(Long userId, GameType gameType) {
         Optional<MatchQueue> existing = matchQueueRepository.findByUserId(userId);
         if (existing.isPresent()) {
             MatchQueue eq = existing.get();
             if (eq.getGameType() == gameType) {
-                return; // already in queue for this game type
+                return Optional.empty(); // already in queue for this game type
             }
             matchQueueRepository.delete(eq);
         }
@@ -45,7 +45,7 @@ public class MatchQueueService {
         entry.setRating(rating);
         matchQueueRepository.save(entry);
         log.debug("User {} joined queue for {}", userId, gameType);
-        tryMatch(gameType);
+        return tryMatch(gameType);
     }
 
     @Transactional

@@ -27,8 +27,7 @@ public class MatchmakingController {
         if (userId == null) {
             return ResponseEntity.status(401).build();
         }
-        matchQueueService.joinQueue(userId, gameType);
-        return matchQueueService.tryMatch(gameType)
+        return matchQueueService.joinQueue(userId, gameType)
                 .map(m -> ResponseEntity.status(201).body((Object) matchService.toMatchResponse(m)))
                 .orElse(ResponseEntity.ok().body(Map.of("status", "waiting")));
     }

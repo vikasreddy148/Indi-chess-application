@@ -17,7 +17,9 @@ export default function LoginRegisterPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     if (tab === TAB_LOGIN) {
@@ -25,15 +27,29 @@ export default function LoginRegisterPage() {
         setError('Please enter username or email and password.')
         return
       }
-      login(username.trim(), password)
-      navigate('/home', { replace: true })
+      setLoading(true)
+      try {
+        await login(username.trim(), password)
+        navigate('/home', { replace: true })
+      } catch (err) {
+        setError(err.message || 'Login failed.')
+      } finally {
+        setLoading(false)
+      }
     } else {
       if (!username.trim() || !email.trim() || !password) {
         setError('Please fill in username, email, and password.')
         return
       }
-      register(username.trim(), email.trim(), password)
-      navigate('/home', { replace: true })
+      setLoading(true)
+      try {
+        await register(username.trim(), email.trim(), password)
+        navigate('/home', { replace: true })
+      } catch (err) {
+        setError(err.message || 'Registration failed.')
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -117,8 +133,8 @@ export default function LoginRegisterPage() {
               </div>
             )}
 
-            <Button type="submit" variant="primary" className="w-full py-3.5 rounded-xl">
-              {tab === TAB_LOGIN ? 'Sign In' : 'Create Account'}
+            <Button type="submit" variant="primary" className="w-full py-3.5 rounded-xl" disabled={loading}>
+              {loading ? 'Please wait…' : tab === TAB_LOGIN ? 'Sign In' : 'Create Account'}
             </Button>
 
             <Button
