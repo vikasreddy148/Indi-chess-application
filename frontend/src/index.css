@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Josefin Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-indigo-bg: #0f172a;
+  --color-indigo-surface: #1e293b;
+  --color-emerald-glow: #10b981;
+  --color-emerald-muted: #059669;
+  --color-danger: #ef4444;
+  --radius-xl: 1rem;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply bg-slate-900 text-white font-sans min-h-screen;
+  }
+}

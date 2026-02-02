@@ -1,83 +1,86 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import ChessBoard from '../components/ChessBoard.jsx';
-import { getBoardState } from '../chess/state.js';
-import { applyMove, getGameOutcome, STARTING_FEN } from '../chess/legalMoves.js';
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Chess } from 'chess.js'
+import { Logo } from '../components/Logo.jsx'
+import { Button } from '../components/Button.jsx'
+import { ChessBoard } from '../components/ChessBoard.jsx'
 
-function LocalGamePage() {
-  const [fen, setFen] = useState(STARTING_FEN);
-  const [selectedSquare, setSelectedSquare] = useState(null);
-  const [legalTargets, setLegalTargets] = useState([]);
+export default function LocalGamePage() {
+  const [game, setGame] = useState(() => new Chess())
+  const [selectedSquare, setSelectedSquare] = useState(null)
+  const [lastMove, setLastMove] = useState(null)
 
-  const state = getBoardState(fen);
-  const outcome = getGameOutcome(fen);
-  const isWhiteTurn = state?.turn === 'w';
+  const turn = game.turn() === 'w' ? 'White' : 'Black'
+  const legalSquares = selectedSquare
+    ? game.moves({ square: selectedSquare, verbose: true }).map((m) => m.to)
+    : []
 
-  const handleSquareClick = (square) => {
-    if (outcome.gameOver) return;
-    const piece = state?.pieceMap?.[square];
-    const targets = state?.legalTargetsFrom?.(square) ?? [];
-
-    if (selectedSquare === square) {
-      setSelectedSquare(null);
-      setLegalTargets([]);
-      return;
+  const handleSquareClick = (sq) => {
+    const piece = game.get(sq)
+    if (piece && piece.color === game.turn()) {
+      setSelectedSquare(sq)
+      return
     }
-    if (piece && piece.color === state.turn) {
-      setSelectedSquare(square);
-      setLegalTargets(targets);
-      return;
-    }
-    if (legalTargets.includes(square) && selectedSquare) {
-      const result = applyMove(fen, selectedSquare + square);
-      if (result.ok) {
-        setFen(result.fen);
+    if (selectedSquare && legalSquares.includes(sq)) {
+      const move = game.move({ from: selectedSquare, to: sq })
+      if (move) {
+        setLastMove({ from: move.from, to: move.to })
+        setSelectedSquare(null)
       }
-      setSelectedSquare(null);
-      setLegalTargets([]);
+      return
     }
-  };
+    setSelectedSquare(null)
+  }
 
   const resetGame = () => {
-    setFen(STARTING_FEN);
-    setSelectedSquare(null);
-    setLegalTargets([]);
-  };
-
-  const statusText = outcome.gameOver
-    ? outcome.winner
-      ? `${outcome.winner === 'w' ? 'White' : 'Black'} wins`
-      : 'Draw'
-    : isWhiteTurn
-      ? 'White to move'
-      : 'Black to move';
+    setGame(new Chess())
+    setSelectedSquare(null)
+    setLastMove(null)
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 flex flex-col items-center">
-      <header className="w-full max-w-2xl flex justify-between items-center mb-4">
-        <Link to="/home" className="text-stone-400 hover:text-white transition">
-          ← Home
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 flex flex-col">
+      <header className="flex items-center justify-between px-6 py-4 bg-slate-900/90 backdrop-blur-md border-b border-white/5 shrink-0">
+        <Link to="/" className="flex items-center gap-2">
+          <Logo compact />
         </Link>
-        <span className="font-semibold">{statusText}</span>
-        <button
-          onClick={resetGame}
-          className="px-3 py-1 rounded bg-stone-700 hover:bg-stone-600 transition text-sm"
-        >
-          New Game
-        </button>
+        <h1 className="text-xl font-bold text-white">{turn}'s turn</h1>
       </header>
 
-      <ChessBoard
-        fen={fen}
-        orientation="white"
-        selectedSquare={selectedSquare}
-        legalTargets={legalTargets}
-        onSquareClick={handleSquareClick}
-      />
+      <main className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
+        <ChessBoard
+          fen={game.fen()}
+          orientation="white"
+          selectedSquare={selectedSquare}
+          lastMove={lastMove}
+          legalMoves={legalSquares}
+          onSquareClick={handleSquareClick}
+        />
 
-      <p className="mt-4 text-stone-400 text-sm">Local 2-player · White plays first</p>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Button
+            variant="primary"
+            className="rounded-xl px-6 py-3 flex items-center gap-2 border border-emerald-400/50 shadow-emerald-500/20"
+            onClick={resetGame}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Reset Game
+          </Button>
+          <Link to="/">
+            <Button
+              variant="primary"
+              className="rounded-xl px-6 py-3 flex items-center gap-2 border border-emerald-400/50 shadow-emerald-500/20"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Home
+            </Button>
+          </Link>
+        </div>
+      </main>
     </div>
-  );
+  )
 }
-
-export default LocalGamePage;

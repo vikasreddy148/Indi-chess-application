@@ -1,306 +1,218 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext.jsx';
-import { joinMatchmaking, leaveMatchmaking, getUserMatches, GAME_TYPES } from '../api/match.js';
-import { createStompClient, subscribeToMatchmaking } from '../ws/stompClient.js';
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
+import { Logo } from '../components/Logo.jsx'
+import { Button } from '../components/Button.jsx'
+import { Card, CardHeader, CardTitle, CardBody } from '../components/Card.jsx'
+import { Badge } from '../components/Badge.jsx'
+import { Input } from '../components/Input.jsx'
 
-function HomePage() {
-  const { user, isAuthenticated, logout, updateProfile } = useAuth();
-  const navigate = useNavigate();
-  const [gameType, setGameType] = useState('RAPID');
-  const [status, setStatus] = useState('idle'); // idle | finding | error
-  const [error, setError] = useState(null);
-  const [userMatches, setUserMatches] = useState([]);
-  const [matchesLoading, setMatchesLoading] = useState(true);
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [editCountry, setEditCountry] = useState('');
-  const [editPfpUrl, setEditPfpUrl] = useState('');
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [profileError, setProfileError] = useState(null);
+const GAME_TYPES = [
+  { value: 'rapid', label: 'Rapid (10+0)' },
+  { value: 'blitz', label: 'Blitz (3+2)' },
+  { value: 'classical', label: 'Classical (30+0)' },
+]
 
-  const matchmakingClientRef = useRef(null);
+const DUMMY_GAMES = [
+  { id: '98765', status: 'Ongoing', result: 'Live' },
+  { id: '98764', status: 'Finished', result: 'Won' },
+  { id: '98763', status: 'Draw', result: 'Draw' },
+]
 
-  const handleFindMatch = async () => {
-    if (!user?.userId) return;
-    setError(null);
-    setStatus('finding');
-    try {
-      const res = await joinMatchmaking(gameType);
-      if (res?.id) {
-        navigate(`/game/${res.id}`);
-        return;
-      }
-      // Waiting - WebSocket and polling will detect when match is found
-    } catch (e) {
-      setError(e.message || 'Failed to find match');
-      setStatus('idle');
-    }
-  };
+export default function HomePage() {
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const [gameType, setGameType] = useState('rapid')
+  const [findingMatch, setFindingMatch] = useState(false)
+  const [matchSeconds, setMatchSeconds] = useState(0)
+  const [profileCollapsed, setProfileCollapsed] = useState(false)
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [profileUsername, setProfileUsername] = useState(user?.username ?? '')
+  const [profileEmail, setProfileEmail] = useState(user?.email ?? '')
 
-  const cancelSearch = async () => {
-    try {
-      await leaveMatchmaking();
-    } catch (_) {}
-    if (matchmakingClientRef.current) {
-      matchmakingClientRef.current.deactivate?.();
-      matchmakingClientRef.current = null;
-    }
-    setStatus('idle');
-    setError(null);
-  };
-
-  useEffect(() => {
-    if (status !== 'finding' || !user?.userId) return;
-    const client = createStompClient({
-      onConnect: () => {
-        const unsub = subscribeToMatchmaking(client, user.userId, (match) => {
-          if (match?.id) navigate(`/game/${match.id}`);
-        });
-        client._matchmakingUnsub = unsub;
-      },
-    });
-    matchmakingClientRef.current = client;
-    client.activate();
-    return () => {
-      client._matchmakingUnsub?.();
-      client.deactivate?.();
-      matchmakingClientRef.current = null;
-    };
-  }, [status, user?.userId, navigate]);
-
-  useEffect(() => {
-    if (status !== 'finding' || !user?.userId) return;
-    const interval = setInterval(async () => {
-      try {
-        const matches = await getUserMatches(user.userId);
-        const recent = (matches || []).filter((m) => {
-          if (m.status !== 'ONGOING') return false;
-          const started = m.startedAt ? new Date(m.startedAt).getTime() : 0;
-          return Date.now() - started < 60_000;
-        });
-        if (recent.length > 0) {
-          navigate(`/game/${recent[0].id}`);
-        }
-      } catch (_) {}
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [status, user?.userId, navigate]);
-
-  useEffect(() => {
-    if (!user?.userId) {
-      setMatchesLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setMatchesLoading(true);
-    getUserMatches(user.userId)
-      .then((list) => {
-        if (!cancelled) setUserMatches(list || []);
+  const startFindingMatch = () => {
+    setFindingMatch(true)
+    setMatchSeconds(0)
+    const t = setInterval(() => {
+      setMatchSeconds((s) => {
+        if (s >= 59) clearInterval(t)
+        return s + 1
       })
-      .catch(() => {
-        if (!cancelled) setUserMatches([]);
-      })
-      .finally(() => {
-        if (!cancelled) setMatchesLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [user?.userId]);
-
-  useEffect(() => {
-    if (user) {
-      setEditCountry(user.country ?? '');
-      setEditPfpUrl(user.pfpUrl ?? '');
-    }
-  }, [user?.userId, user?.country, user?.pfpUrl]);
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    setProfileError(null);
-    setProfileSaving(true);
-    try {
-      await updateProfile({ country: editCountry || null, pfpUrl: editPfpUrl || null });
-      setShowEditProfile(false);
-    } catch (err) {
-      setProfileError(err.message || 'Failed to update profile');
-    } finally {
-      setProfileSaving(false);
-    }
-  };
-
-  if (!isAuthenticated || !user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <p className="text-white">Please log in to play.</p>
-      </div>
-    );
+    }, 1000)
+    setTimeout(() => {
+      clearInterval(t)
+      setFindingMatch(false)
+      navigate('/game/dummy-1')
+    }, 5000)
   }
 
+  const formatTimer = (s) => `0:${String(s).padStart(2, '0')}`
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
-      <header className="max-w-2xl mx-auto flex justify-between items-center mb-12 flex-wrap gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">IndiChess</h1>
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
+      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-slate-900/90 backdrop-blur-md border-b border-white/5">
+        <Link to="/home" className="flex items-center gap-2">
+          <Logo compact />
+        </Link>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-stone-300">
-            {user.username} · Rating {user.rating ?? 1200}
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 font-bold">
+              {user?.username?.charAt(0)?.toUpperCase() ?? 'P'}
+            </div>
+            <div>
+              <p className="font-semibold text-white">{user?.username ?? 'Player123'}</p>
+              <p className="text-sm text-emerald-400">Rating: {user?.rating ?? 1200}</p>
+            </div>
+          </div>
           <button
             type="button"
-            onClick={() => logout().then(() => navigate('/'))}
-            className="text-sm text-stone-400 hover:text-white transition"
+            onClick={logout}
+            className="text-white/80 hover:text-white font-medium transition-colors"
           >
-            Log out
+            → Logout
           </button>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto space-y-6">
-        <h2 className="text-xl font-semibold text-center">Play Online</h2>
-
-        <div>
-          <label className="block text-sm text-stone-400 mb-2">Game Type</label>
-          <select
-            value={gameType}
-            onChange={(e) => setGameType(e.target.value)}
-            disabled={status === 'finding'}
-            className="w-full px-4 py-3 rounded-lg bg-stone-800/80 border border-stone-600 text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60"
-          >
-            {GAME_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t.charAt(0) + t.slice(1).toLowerCase()}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {status === 'idle' && (
-          <button
-            onClick={handleFindMatch}
-            className="w-full py-4 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-900 font-semibold transition"
-          >
-            Find Match
-          </button>
-        )}
-
-        {status === 'finding' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-center gap-2 py-4">
-              <span className="animate-pulse">●</span>
-              <span>Finding opponent...</span>
-            </div>
-            <button
-              onClick={cancelSearch}
-              className="w-full py-2 rounded-lg border border-stone-500 text-stone-300 hover:bg-stone-800 transition"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <p className="text-rose-400 text-sm text-center">{error}</p>
-        )}
-
-        <div className="pt-6 border-t border-stone-700/80">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold text-stone-200">Profile</h3>
-            <button
-              type="button"
-              onClick={() => { setShowEditProfile(!showEditProfile); setProfileError(null); }}
-              className="text-sm text-amber-400 hover:text-amber-300 transition"
-            >
-              {showEditProfile ? 'Cancel' : 'Edit profile'}
-            </button>
-          </div>
-          {showEditProfile ? (
-            <form onSubmit={handleSaveProfile} className="space-y-3 mb-4">
-              <div>
-                <label className="block text-sm text-stone-400 mb-1">Country</label>
-                <input
-                  type="text"
-                  value={editCountry}
-                  onChange={(e) => setEditCountry(e.target.value)}
-                  placeholder="e.g. India"
-                  className="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-stone-400 mb-1">Profile picture URL</label>
-                <input
-                  type="url"
-                  value={editPfpUrl}
-                  onChange={(e) => setEditPfpUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-                />
-              </div>
-              {profileError && <p className="text-rose-400 text-sm">{profileError}</p>}
-              <button
-                type="submit"
-                disabled={profileSaving}
-                className="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-900 font-medium transition disabled:opacity-60"
+      <main className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Play Online</CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">Game Type</label>
+              <select
+                value={gameType}
+                onChange={(e) => setGameType(e.target.value)}
+                className="w-full rounded-xl border border-emerald-500/40 bg-white/5 py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
               >
-                {profileSaving ? 'Saving…' : 'Save'}
-              </button>
-            </form>
-          ) : (
-            <p className="text-stone-400 text-sm">
-              {user.country ? `Country: ${user.country}` : 'No country set'}
-              {user.pfpUrl && ' · Profile picture set'}
-            </p>
-          )}
-        </div>
+                {GAME_TYPES.map((g) => (
+                  <option key={g.value} value={g.value} className="bg-slate-800 text-white">
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
+              <Button
+                variant="primary"
+                className="rounded-xl px-6 py-3"
+                onClick={startFindingMatch}
+                disabled={findingMatch}
+              >
+                Find Match
+              </Button>
+              {findingMatch && (
+                <div className="flex items-center gap-3 text-white/80">
+                  <svg className="animate-spin h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Finding opponent...</span>
+                  <span className="font-mono">{formatTimer(matchSeconds)}</span>
+                </div>
+              )}
+            </div>
+          </CardBody>
+        </Card>
 
-        <div className="pt-8 border-t border-stone-700/80">
-          <h3 className="text-lg font-semibold text-stone-200 mb-3">Your games</h3>
-          {matchesLoading ? (
-            <p className="text-stone-500 text-sm">Loading…</p>
-          ) : userMatches.length === 0 ? (
-            <p className="text-stone-500 text-sm">No games yet. Start a match above.</p>
-          ) : (
-            <ul className="space-y-2">
-              {userMatches.slice(0, 10).map((m) => {
-                const isOngoing = m.status === 'ONGOING';
-                const label =
-                  m.status === 'ONGOING'
-                    ? 'Ongoing'
-                    : m.status === 'PLAYER1_WON' || m.status === 'PLAYER2_WON'
-                      ? 'Finished'
-                      : m.status === 'DRAW' || m.status === 'ABANDONED'
-                        ? 'Draw / Over'
-                        : m.status ?? 'Game';
-                return (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/game/${m.id}`)}
-                      className="w-full text-left px-4 py-3 rounded-lg bg-stone-800/80 border border-stone-600 hover:border-amber-500/50 hover:bg-stone-700/80 transition flex justify-between items-center"
-                    >
-                      <span className="text-white font-medium">
-                        Game {m.id}
-                        {isOngoing && (
-                          <span className="ml-2 text-xs text-amber-400">• Live</span>
-                        )}
-                      </span>
-                      <span className="text-stone-400 text-sm">{label}</span>
-                    </button>
-                  </li>
-                );
-              })}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between cursor-pointer" onClick={() => setProfileCollapsed((c) => !c)}>
+            <CardTitle>Profile</CardTitle>
+            <svg className={`w-5 h-5 text-white/70 transition-transform ${profileCollapsed ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </CardHeader>
+          {!profileCollapsed && (
+            <CardBody>
+              <div className="flex gap-6">
+                <div className="w-20 h-20 rounded-full bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-2xl font-bold shrink-0">
+                  {user?.username?.charAt(0)?.toUpperCase() ?? 'P'}
+                </div>
+                <div className="flex-1 space-y-4 min-w-0">
+                  <p className="text-white/80">Country: {user?.country ?? 'USA'}</p>
+                  {editingProfile ? (
+                    <>
+                      <Input
+                        label="Username"
+                        value={profileUsername}
+                        onChange={(e) => setProfileUsername(e.target.value)}
+                        className="bg-white/5 border-emerald-500/40"
+                      />
+                      <Input
+                        label="Email"
+                        type="email"
+                        value={profileEmail}
+                        onChange={(e) => setProfileEmail(e.target.value)}
+                        className="bg-white/5 border-emerald-500/40"
+                      />
+                      <div className="flex gap-2">
+                        <Button variant="primary" className="rounded-xl" onClick={() => setEditingProfile(false)}>Save</Button>
+                        <Button variant="secondary" className="rounded-xl" onClick={() => setEditingProfile(false)}>Cancel</Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        label="Username"
+                        value={profileUsername}
+                        readOnly
+                        className="bg-white/5 border-emerald-500/40"
+                      />
+                      <Input
+                        label="Email"
+                        value={profileEmail}
+                        readOnly
+                        className="bg-white/5 border-emerald-500/40"
+                      />
+                      <button type="button" className="text-emerald-400 hover:text-emerald-300 text-sm font-medium">
+                        Change Password
+                      </button>
+                      <div className="flex gap-2">
+                        <Button variant="primary" className="rounded-xl" onClick={() => setEditingProfile(true)}>Edit</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </CardBody>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Games</CardTitle>
+          </CardHeader>
+          <CardBody className="p-0">
+            <ul className="divide-y divide-white/10">
+              {DUMMY_GAMES.map((g) => (
+                <li key={g.id}>
+                  <Link
+                    to={`/game/${g.id}`}
+                    className="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <span className="text-white/80">Game ID: #{g.id}</span>
+                      <span className="text-white/80">Status: {g.status}</span>
+                      <Badge variant={g.result === 'Live' ? 'live' : g.result === 'Won' ? 'success' : 'draw'}>
+                        {g.result}
+                      </Badge>
+                    </div>
+                    <span className="text-white/50 group-hover:text-emerald-400">→</span>
+                  </Link>
+                </li>
+              ))}
             </ul>
-          )}
-        </div>
+          </CardBody>
+        </Card>
 
-        <div className="pt-6 text-center">
-          <Link
-            to="/local"
-            className="text-stone-400 hover:text-white transition"
-          >
+        <footer className="text-center py-6">
+          <Link to="/local" className="text-emerald-400 hover:text-emerald-300 font-medium">
             Play locally (2 players)
           </Link>
-        </div>
+        </footer>
       </main>
     </div>
-  );
+  )
 }
-
-export default HomePage;

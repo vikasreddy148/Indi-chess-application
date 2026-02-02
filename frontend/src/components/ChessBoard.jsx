@@ -1,68 +1,105 @@
-import { PIECE_SYMBOLS, FILES, RANKS, SQUARES } from '../chess/board.js';
-import { getBoardState } from '../chess/state.js';
+import { Chess } from 'chess.js'
+import { FILES, RANKS, PIECE_SYMBOLS } from '../lib/chessConstants.js'
 
-function ChessBoard({ fen, orientation = 'white', lastMoveUci, selectedSquare, legalTargets, onSquareClick }) {
-  const state = getBoardState(fen);
-  const pieceMap = state?.pieceMap ?? {};
-  const isFlipped = orientation === 'black';
-  const displayRanks = isFlipped ? [...RANKS].reverse() : RANKS;
-  const displayFiles = isFlipped ? [...FILES].reverse() : FILES;
+const LIGHT_SQ = 'bg-amber-100'
+const DARK_SQ = 'bg-amber-900'
 
-  function getSquareColor(fileIdx, rankIdx) {
-    const isLight = (fileIdx + rankIdx) % 2 === 0;
-    return isLight ? 'bg-amber-100' : 'bg-emerald-800';
-  }
+export function ChessBoard({
+  fen,
+  orientation = 'white',
+  selectedSquare = null,
+  lastMove = null,
+  legalMoves = [],
+  onSquareClick,
+  disabled = false,
+  className = '',
+}) {
+  const game = new Chess(fen)
+  const board = []
+  const ranks = orientation === 'white' ? [...RANKS] : RANKS.slice().reverse()
+  const files = orientation === 'white' ? [...FILES] : FILES.slice().reverse()
 
-  function isHighlighted(square) {
-    if (selectedSquare === square) return true;
-    if (legalTargets?.includes(square)) return true;
-    if (!lastMoveUci) return false;
-    const from = lastMoveUci.slice(0, 2);
-    const to = lastMoveUci.slice(2, 4);
-    return square === from || square === to;
+  for (let ri = 0; ri < 8; ri++) {
+    const rank = ranks[ri]
+    for (let fi = 0; fi < 8; fi++) {
+      const file = files[fi]
+      const sq = file + rank
+      const isLight = (ri + fi) % 2 === 0
+      const piece = game.get(sq)
+      const isSelected = selectedSquare === sq
+      const isLastFrom = lastMove?.from === sq
+      const isLastTo = lastMove?.to === sq
+      const isLegal = legalMoves.includes(sq)
+
+      board.push({
+        sq,
+        isLight,
+        piece,
+        isSelected,
+        isLastFrom,
+        isLastTo,
+        isLegal,
+      })
+    }
   }
 
   return (
-    <div className="inline-block border-4 border-stone-800 rounded-lg overflow-hidden shadow-xl">
-      <div className="grid grid-cols-8 gap-0" style={{ width: 'min(80vw, 480px)' }}>
-        {displayRanks.map((rank) =>
-          displayFiles.map((file) => {
-            const square = file + rank;
-            const fileIdx = FILES.indexOf(file);
-            const rankIdx = RANKS.indexOf(rank);
-            const piece = pieceMap[square];
-            const baseColor = getSquareColor(fileIdx, rankIdx);
-            const highlight = isHighlighted(square);
-            const isSelected = selectedSquare === square;
-            const isLegalTarget = legalTargets?.includes(square);
-
-            let bgClass = baseColor;
-            if (isSelected) bgClass = 'bg-amber-300';
-            else if (isLegalTarget) bgClass = piece ? 'bg-rose-400' : 'bg-amber-200/80';
-            else if (highlight && !isSelected) bgClass = `${baseColor} ring-2 ring-inset ring-amber-500/50`;
+    <div className={`inline-flex flex-col rounded-xl overflow-hidden shadow-2xl border border-emerald-500/20 ${className}`}>
+      <div className="flex">
+        <div className="flex flex-col justify-around py-1 pr-1 bg-slate-800/90 text-white/80 text-sm font-medium shrink-0 w-6">
+          {ranks.map((r) => (
+            <span key={r} className="text-center">{r}</span>
+          ))}
+        </div>
+        <div className="grid grid-cols-8" style={{ aspectRatio: '1', width: 'min(70vmin, 480px)' }}>
+          {board.map(({ sq, isLight, piece, isSelected, isLastFrom, isLastTo, isLegal }) => {
+            let bg = isLight ? LIGHT_SQ : DARK_SQ
+            if (isLastTo) bg = 'bg-emerald-400/40'
+            else if (isLastFrom) bg = 'bg-emerald-500/30'
+            else if (isSelected) bg = 'bg-emerald-500/50'
 
             return (
               <button
-                key={square}
+                key={sq}
                 type="button"
-                className={`aspect-square flex items-center justify-center text-4xl md:text-5xl font-chess select-none transition ${bgClass} hover:opacity-90`}
-                onClick={() => onSquareClick?.(square)}
-                data-square={square}
+                onClick={() => !disabled && onSquareClick?.(sq)}
+                disabled={disabled}
+                className={`
+                  relative w-full aspect-square flex items-center justify-center
+                  ${bg} border-2 transition-colors
+                  ${isSelected ? 'border-emerald-400 shadow-lg shadow-emerald-500/30' : 'border-transparent'}
+                  ${!disabled ? 'hover:brightness-95 cursor-pointer' : 'cursor-default'}
+                `}
               >
-                {piece ? (
-                  <span className={piece.color === 'w' ? 'text-stone-800' : 'text-stone-900'}>
-                    {PIECE_SYMBOLS[piece.color]?.[piece.type]}
+                {piece && (
+                  <span
+                    className={`text-3xl sm:text-4xl md:text-5xl select-none pointer-events-none ${
+                      piece.color === 'w' ? 'text-slate-800 drop-shadow' : 'text-slate-900'
+                    }`}
+                    style={{ fontFamily: 'Georgia, serif' }}
+                  >
+                    {PIECE_SYMBOLS[piece.color][piece.type.toUpperCase()]}
                   </span>
-                ) : isLegalTarget ? (
-                  <span className="w-3 h-3 rounded-full bg-stone-500/50" />
-                ) : null}
+                )}
+                {isLegal && !piece && (
+                  <span className="absolute w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500/80 pointer-events-none" />
+                )}
+                {isLegal && piece && (
+                  <span className="absolute inset-0 rounded-sm ring-2 ring-emerald-400/60 ring-inset pointer-events-none" />
+                )}
               </button>
-            );
-          })
-        )}
+            )
+          })}
+        </div>
+      </div>
+      <div className="flex">
+        <div className="w-6 shrink-0 bg-slate-800/90" />
+        <div className="grid grid-cols-8 py-1 bg-slate-800/90 text-white/80 text-sm font-medium" style={{ width: 'min(70vmin, 480px)' }}>
+          {files.map((f) => (
+            <span key={f} className="text-center">{f}</span>
+          ))}
+        </div>
       </div>
     </div>
-  );
+  )
 }
-
-export default ChessBoard;

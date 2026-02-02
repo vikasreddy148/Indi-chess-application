@@ -1,187 +1,221 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
+import { Logo } from '../components/Logo.jsx'
+import { Button } from '../components/Button.jsx'
+import { Card } from '../components/Card.jsx'
 
-function LandingPage() {
-  const { user, isAuthenticated, login, register, logout } = useAuth();
-  const navigate = useNavigate();
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [country, setCountry] = useState('');
-  const [usernameOrEmail, setUsernameOrEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await register(username, email, password, country || null);
-      navigate('/home');
-    } catch (err) {
-      setError(err.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await login(usernameOrEmail, loginPassword);
-      navigate('/home');
-    } catch (err) {
-      setError(err.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (isAuthenticated && user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <h1 className="text-5xl font-bold mb-2">IndiChess</h1>
-          <p className="text-lg text-stone-300 mb-8">Welcome, {user.username}</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              to="/home"
-              className="inline-block px-8 py-3 bg-amber-500 hover:bg-amber-400 text-stone-900 rounded-lg font-semibold transition"
-            >
-              Play Now
-            </Link>
-            <button
-              type="button"
-              onClick={() => logout().then(() => navigate('/'))}
-              className="px-8 py-3 rounded-lg border border-stone-500 text-stone-300 hover:bg-stone-800 transition"
-            >
-              Log out
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+function LandingHeader() {
+  const { isAuthenticated } = useAuth()
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <h1 className="text-4xl font-bold text-white text-center mb-2">IndiChess</h1>
-        <p className="text-stone-400 text-center mb-8">Play Chess Online</p>
-
-        <div className="bg-stone-800/60 rounded-xl p-6 border border-stone-700">
-          <div className="flex gap-4 mb-6">
-            <button
-              type="button"
-              onClick={() => { setMode('login'); setError(null); }}
-              className={`flex-1 py-2 rounded-lg font-medium transition ${mode === 'login' ? 'bg-amber-500 text-stone-900' : 'text-stone-400 hover:text-white'}`}
-            >
+    <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-white/5">
+      <Link to="/" className="flex items-center gap-2">
+        <Logo compact />
+      </Link>
+      <nav className="flex items-center gap-4">
+        {isAuthenticated ? (
+          <Link to="/home">
+            <Button variant="primary">Play Now</Button>
+          </Link>
+        ) : (
+          <>
+            <Link to="/login" className="text-white/90 hover:text-white font-medium transition-colors">
               Login
-            </button>
-            <button
-              type="button"
-              onClick={() => { setMode('register'); setError(null); }}
-              className={`flex-1 py-2 rounded-lg font-medium transition ${mode === 'register' ? 'bg-amber-500 text-stone-900' : 'text-stone-400 hover:text-white'}`}
-            >
-              Register
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-4">
-              <p className="text-rose-400 text-sm">{error}</p>
-              {(error.includes('already exists') || error.includes('Already exists')) && (
-                <button
-                  type="button"
-                  onClick={() => { setMode('login'); setError(null); }}
-                  className="mt-2 text-sm text-amber-400 hover:text-amber-300 transition"
-                >
-                  Log in instead →
-                </button>
-              )}
-            </div>
-          )}
-
-          {mode === 'login' ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Username or Email"
-                value={usernameOrEmail}
-                onChange={(e) => setUsernameOrEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-lg bg-stone-900 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-lg bg-stone-900 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-900 font-semibold transition disabled:opacity-60"
-              >
-                {loading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                minLength={4}
-                className="w-full px-4 py-3 rounded-lg bg-stone-900 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-lg bg-stone-900 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-4 py-3 rounded-lg bg-stone-900 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-              />
-              <input
-                type="text"
-                placeholder="Country (optional)"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-stone-900 border border-stone-600 text-white placeholder-stone-500 focus:ring-2 focus:ring-amber-500 outline-none"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-900 font-semibold transition disabled:opacity-60"
-              >
-                {loading ? 'Creating account...' : 'Create Account'}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+            </Link>
+            <Link to="/login">
+              <Button variant="primary">Register</Button>
+            </Link>
+          </>
+        )}
+      </nav>
+    </header>
+  )
 }
 
-export default LandingPage;
+function Hero() {
+  const { isAuthenticated } = useAuth()
+  return (
+    <section className="relative pt-32 pb-24 px-6 overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-20 pointer-events-none"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+      <div className="absolute top-1/4 right-0 w-1/2 h-1/2 bg-emerald-500/5 rounded-full blur-3xl" />
+      <div className="relative max-w-4xl mx-auto text-center">
+        <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 tracking-tight">
+          Play Chess Online
+        </h1>
+        <p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto">
+          Challenge players worldwide in real-time
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {isAuthenticated ? (
+            <Link to="/home">
+              <Button variant="primary" className="px-8 py-4 text-lg rounded-xl shadow-emerald-500/30 border border-emerald-400/50">
+                Play Online
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="primary" className="px-8 py-4 text-lg rounded-xl shadow-emerald-500/30 border border-emerald-400/50">
+                  Play Online
+                </Button>
+              </Link>
+              <Link to="/local">
+                <Button variant="secondary" className="px-8 py-4 text-lg rounded-xl border border-emerald-400/60">
+                  Play with Friends
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-slate-700/30 rounded-full blur-3xl -z-10" />
+    </section>
+  )
+}
+
+const FEATURES = [
+  {
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    title: 'Fast matchmaking',
+    desc: 'Find an opponent in seconds. No waiting, just chess.',
+  },
+  {
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1 12a11 11 0 1022 0 11 11 0 00-22 0z" />
+      </svg>
+    ),
+    title: 'Real-time online games',
+    desc: 'Seamless gameplay with low latency. Experience live chess.',
+  },
+  {
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+    title: 'Secure & fair play',
+    desc: 'Robust anti-cheat measures ensure a clean gaming environment.',
+  },
+]
+
+function Features() {
+  return (
+    <section className="py-20 px-6">
+      <h2 className="text-3xl font-bold text-white text-center mb-12">Features</h2>
+      <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
+        {FEATURES.map((f) => (
+          <Card key={f.title} className="p-6 border-emerald-500/20">
+            <div className="text-emerald-400 mb-4">{f.icon}</div>
+            <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
+            <p className="text-white/70 text-sm">{f.desc}</p>
+          </Card>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+const STEPS = [
+  {
+    step: 1,
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    ),
+    title: 'Create an account',
+    desc: 'Sign up in minutes to get started.',
+  },
+  {
+    step: 2,
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    ),
+    title: 'Find a match',
+    desc: 'Choose your time control and start searching.',
+  },
+  {
+    step: 3,
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+      </svg>
+    ),
+    title: 'Play and improve',
+    desc: 'Enjoy the game, analyze your moves, and boost your rating.',
+  },
+]
+
+function HowItWorks() {
+  return (
+    <section className="py-20 px-6">
+      <h2 className="text-3xl font-bold text-white text-center mb-12">How It Works</h2>
+      <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
+        {STEPS.map((s) => (
+          <Card key={s.step} className="p-6 border-emerald-500/20 relative">
+            <div className="absolute -top-3 left-6 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm">
+              {s.step}
+            </div>
+            <div className="text-emerald-400 mb-4 mt-2">{s.icon}</div>
+            <h3 className="text-lg font-bold text-white mb-2">{s.title}</h3>
+            <p className="text-white/70 text-sm">{s.desc}</p>
+          </Card>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CTA() {
+  return (
+    <section className="py-20 px-6">
+      <div className="max-w-2xl mx-auto text-center">
+        <h2 className="text-3xl font-bold text-white mb-6">Ready to play?</h2>
+        <Link to="/login">
+          <Button variant="primary" className="px-10 py-4 text-lg rounded-xl shadow-emerald-500/30 border border-emerald-400/50">
+            Get Started Free
+          </Button>
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="py-8 px-6 border-t border-white/5">
+      <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-6 text-sm text-white/60">
+        <a href="#about" className="hover:text-white transition-colors">About</a>
+        <a href="#github" className="hover:text-white transition-colors">GitHub</a>
+        <a href="#privacy" className="hover:text-white transition-colors">Privacy</a>
+        <a href="#terms" className="hover:text-white transition-colors">Terms</a>
+      </div>
+    </footer>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
+      <LandingHeader />
+      <main>
+        <Hero />
+        <Features />
+        <HowItWorks />
+        <CTA />
+        <Footer />
+      </main>
+    </div>
+  )
+}
