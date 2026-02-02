@@ -23,4 +23,5 @@ public class MatchResponse {
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
     private LocalDateTime createdAt;
+    private Long drawOfferedByPlayerId;
 }

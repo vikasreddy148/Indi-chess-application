@@ -71,9 +71,49 @@ public class GameMessageController {
         } else {
             try {
                 MatchResponse match = gameService.offerDraw(matchId, userId);
+                msg = GameUpdateMessage.drawOffered(match);
+            } catch (Exception e) {
+                log.warn("Draw offer failed for match {}: {}", matchId, e.getMessage());
+                msg = GameUpdateMessage.error(e.getMessage());
+            }
+        }
+        messagingTemplate.convertAndSend("/topic/game/" + matchId, msg);
+    }
+
+    @MessageMapping("/game/{matchId}/draw/accept")
+    public void acceptDraw(
+            @DestinationVariable Long matchId,
+            SimpMessageHeaderAccessor accessor) {
+        GameUpdateMessage msg;
+        Long userId = extractUserId(accessor);
+        if (userId == null) {
+            msg = GameUpdateMessage.error("Unauthorized");
+        } else {
+            try {
+                MatchResponse match = gameService.acceptDraw(matchId, userId);
                 msg = GameUpdateMessage.draw(match);
             } catch (Exception e) {
-                log.warn("Draw failed for match {}: {}", matchId, e.getMessage());
+                log.warn("Draw accept failed for match {}: {}", matchId, e.getMessage());
+                msg = GameUpdateMessage.error(e.getMessage());
+            }
+        }
+        messagingTemplate.convertAndSend("/topic/game/" + matchId, msg);
+    }
+
+    @MessageMapping("/game/{matchId}/draw/decline")
+    public void declineDraw(
+            @DestinationVariable Long matchId,
+            SimpMessageHeaderAccessor accessor) {
+        GameUpdateMessage msg;
+        Long userId = extractUserId(accessor);
+        if (userId == null) {
+            msg = GameUpdateMessage.error("Unauthorized");
+        } else {
+            try {
+                MatchResponse match = gameService.declineDraw(matchId, userId);
+                msg = GameUpdateMessage.drawDeclined(match);
+            } catch (Exception e) {
+                log.warn("Draw decline failed for match {}: {}", matchId, e.getMessage());
                 msg = GameUpdateMessage.error(e.getMessage());
             }
         }
@@ -128,6 +168,20 @@ public class GameMessageController {
         public static GameUpdateMessage draw(MatchResponse match) {
             GameUpdateMessage m = new GameUpdateMessage();
             m.setType("DRAW");
+            m.setMatch(match);
+            return m;
+        }
+
+        public static GameUpdateMessage drawOffered(MatchResponse match) {
+            GameUpdateMessage m = new GameUpdateMessage();
+            m.setType("DRAW_OFFERED");
+            m.setMatch(match);
+            return m;
+        }
+
+        public static GameUpdateMessage drawDeclined(MatchResponse match) {
+            GameUpdateMessage m = new GameUpdateMessage();
+            m.setType("DRAW_DECLINED");
             m.setMatch(match);
             return m;
         }

@@ -12,8 +12,25 @@ export function setToken(token) {
   }
 }
 
+async function refreshToken() {
+  const token = getToken();
+  if (!token) return null;
+  const { API_ENDPOINTS } = await import('../config/api.js');
+  const res = await fetch(API_ENDPOINTS.AUTH.REFRESH, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data?.token) {
+    setToken(data.token);
+    return data.token;
+  }
+  return null;
+}
+
 /**
- * Authenticated fetch: adds Bearer token and handles 401.
+ * Authenticated fetch: adds Bearer token, on 401 tries refresh once and retries.
  */
 export async function apiRequest(url, options = {}) {
   const token = getToken();
@@ -24,8 +41,18 @@ export async function apiRequest(url, options = {}) {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const res = await fetch(url, { ...options, headers });
-  if (res.status === 401) {
+  let res = await fetch(url, { ...options, headers });
+  if (res.status === 401 && !options._retried) {
+    const newToken = await refreshToken();
+    if (newToken) {
+      const retryHeaders = { ...headers, Authorization: `Bearer ${newToken}` };
+      res = await fetch(url, { ...options, headers: retryHeaders, _retried: true });
+    }
+    if (res.status === 401) {
+      setToken(null);
+      throw new Error('Unauthorized');
+    }
+  } else if (res.status === 401) {
     setToken(null);
     throw new Error('Unauthorized');
   }

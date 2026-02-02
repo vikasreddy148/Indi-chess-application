@@ -51,6 +51,20 @@ public class JwtService {
     private Boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
+
+    /** Allow token expired within graceSeconds (e.g. 300 = 5 min) for refresh. Returns claims or throws. */
+    public Claims getClaimsForRefresh(String token, long graceSeconds) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .setAllowedClockSkewSeconds(graceSeconds)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid or expired token");
+        }
+    }
     
     public String generateToken(Long userId, String username) {
         Map<String, Object> claims = new HashMap<>();

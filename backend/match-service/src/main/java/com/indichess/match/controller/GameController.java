@@ -55,6 +55,30 @@ public class GameController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{id}/draw/accept")
+    public ResponseEntity<MatchResponse> acceptDraw(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
+        Long playerId = userIdHeader != null ? Long.parseLong(userIdHeader) : null;
+        if (playerId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        MatchResponse response = gameService.acceptDraw(id, playerId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/draw/decline")
+    public ResponseEntity<MatchResponse> declineDraw(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
+        Long playerId = userIdHeader != null ? Long.parseLong(userIdHeader) : null;
+        if (playerId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        MatchResponse response = gameService.declineDraw(id, playerId);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}/history")
     public ResponseEntity<List<MoveResponse>> getMoveHistory(@PathVariable Long id) {
         return ResponseEntity.ok(gameService.getMoveHistory(id));

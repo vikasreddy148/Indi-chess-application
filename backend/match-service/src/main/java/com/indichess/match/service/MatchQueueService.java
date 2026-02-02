@@ -1,5 +1,6 @@
 package com.indichess.match.service;
 
+import com.indichess.match.dto.MatchResponse;
 import com.indichess.match.model.GameType;
 import com.indichess.match.model.Match;
 import com.indichess.match.model.MatchQueue;
@@ -7,7 +8,7 @@ import com.indichess.match.model.MatchStatus;
 import com.indichess.match.repo.MatchQueueRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ public class MatchQueueService {
     private final MatchQueueRepository matchQueueRepository;
     private final MatchService matchService;
     private final RatingService ratingService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public void joinQueue(Long userId, GameType gameType) {
@@ -67,6 +69,9 @@ public class MatchQueueService {
                     matchQueueRepository.delete(b);
                     Match match = matchService.createMatch(a.getUserId(), b.getUserId(), gameType);
                     log.info("Matched users {} and {} for {}", a.getUserId(), b.getUserId(), gameType);
+                    MatchResponse response = matchService.toMatchResponse(match);
+                    messagingTemplate.convertAndSend("/topic/matchmaking/" + a.getUserId(), response);
+                    messagingTemplate.convertAndSend("/topic/matchmaking/" + b.getUserId(), response);
                     return Optional.of(match);
                 }
             }

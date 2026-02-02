@@ -37,4 +37,14 @@ public class AuthController {
         }
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestHeader("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).build();
+        }
+        String token = authHeader.substring(7);
+        AuthResponse response = authService.refresh(token);
+        return ResponseEntity.ok(response);
+    }
 }

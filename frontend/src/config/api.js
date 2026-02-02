@@ -19,6 +19,8 @@ export const API_ENDPOINTS = {
     MOVE: (id) => `${API_BASE_URL}/api/matches/${id}/move`,
     RESIGN: (id) => `${API_BASE_URL}/api/matches/${id}/resign`,
     DRAW: (id) => `${API_BASE_URL}/api/matches/${id}/draw`,
+    DRAW_ACCEPT: (id) => `${API_BASE_URL}/api/matches/${id}/draw/accept`,
+    DRAW_DECLINE: (id) => `${API_BASE_URL}/api/matches/${id}/draw/decline`,
   },
   MATCHMAKING: {
     JOIN: `${API_BASE_URL}/api/matchmaking/join`,

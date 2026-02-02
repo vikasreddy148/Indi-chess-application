@@ -67,6 +67,7 @@ public class MatchService {
         response.setStartedAt(match.getStartedAt());
         response.setFinishedAt(match.getFinishedAt());
         response.setCreatedAt(match.getCreatedAt());
+        response.setDrawOfferedByPlayerId(match.getDrawOfferedByPlayerId());
         return response;
     }
 }

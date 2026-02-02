@@ -80,4 +80,18 @@ public class UserService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
+
+    @Transactional
+    public UserResponse updateProfile(String username, com.indichess.user.dto.UpdateProfileRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (request.getCountry() != null) {
+            user.setCountry(request.getCountry());
+        }
+        if (request.getPfpUrl() != null) {
+            user.setPfpUrl(request.getPfpUrl());
+        }
+        user = userRepository.save(user);
+        return getUserResponse(user);
+    }
 }

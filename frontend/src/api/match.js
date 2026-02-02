@@ -67,10 +67,24 @@ export async function resign(matchId) {
 }
 
 /**
- * Offer/accept draw via REST.
+ * Offer draw via REST (pending; opponent can accept/decline).
  */
 export async function offerDraw(matchId) {
   return apiJson(API_ENDPOINTS.MATCH.DRAW(matchId), { method: 'POST' });
+}
+
+/**
+ * Accept draw offer via REST.
+ */
+export async function acceptDraw(matchId) {
+  return apiJson(API_ENDPOINTS.MATCH.DRAW_ACCEPT(matchId), { method: 'POST' });
+}
+
+/**
+ * Decline draw offer via REST.
+ */
+export async function declineDraw(matchId) {
+  return apiJson(API_ENDPOINTS.MATCH.DRAW_DECLINE(matchId), { method: 'POST' });
 }
 
 export { GAME_TYPES };
@@ -84,5 +98,7 @@ export default {
   makeMove,
   resign,
   offerDraw,
+  acceptDraw,
+  declineDraw,
   GAME_TYPES,
 };

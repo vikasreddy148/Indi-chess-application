@@ -171,7 +171,10 @@ curl -s -X POST http://localhost:8080/api/matchmaking/leave \
 
 1. Open **http://localhost:5173** (or **http://localhost:3000** if using Docker frontend).
 2. Use **Get Started** and sign up / log in (auth goes through gateway).
-3. After login, **Home** and **Game** pages use the same gateway APIs and (when implemented) WebSocket at `ws://localhost:8080/ws-indichess` with the same token.
+3. After login:
+   - **Home**: Find match (matchmaking uses WebSocket so you’re redirected as soon as a match is found), edit profile (country, profile picture URL), see **Your games**, and **Log out**.
+   - **Game**: Uses WebSocket when connected (shows “Live”); if it drops, moves/resign/draw fall back to REST. **Offer draw** creates a pending offer; opponent can **Accept** or **Decline**. **Log out** in header.
+   - **Auth**: On 401 the app tries to refresh the token (if it expired within 5 minutes); if refresh fails you’re logged out.
 
 ### 5. Health checks
 

@@ -104,11 +104,49 @@ public class GameService {
         if (match.getStatus() != MatchStatus.ONGOING) {
             throw new IllegalStateException("Match is not ongoing");
         }
+        if (match.getDrawOfferedByPlayerId() != null) {
+            throw new IllegalStateException("A draw offer is already pending");
+        }
+        match.setDrawOfferedByPlayerId(playerId);
+        match.setUpdatedAt(LocalDateTime.now());
+        matchRepository.save(match);
+        return matchService.toMatchResponse(match);
+    }
+
+    @Transactional
+    public MatchResponse acceptDraw(Long matchId, Long playerId) {
+        Match match = matchService.findById(matchId);
+        if (match.getStatus() != MatchStatus.ONGOING) {
+            throw new IllegalStateException("Match is not ongoing");
+        }
+        Long offeredBy = match.getDrawOfferedByPlayerId();
+        if (offeredBy == null) {
+            throw new IllegalStateException("No draw offer pending");
+        }
+        if (offeredBy.equals(playerId)) {
+            throw new IllegalStateException("You cannot accept your own draw offer");
+        }
         match.setStatus(MatchStatus.DRAW);
+        match.setDrawOfferedByPlayerId(null);
         match.setFinishedAt(LocalDateTime.now());
         match.setUpdatedAt(LocalDateTime.now());
         matchRepository.save(match);
         ratingService.updateRatingsAfterMatch(match);
+        return matchService.toMatchResponse(match);
+    }
+
+    @Transactional
+    public MatchResponse declineDraw(Long matchId, Long playerId) {
+        Match match = matchService.findById(matchId);
+        if (match.getStatus() != MatchStatus.ONGOING) {
+            throw new IllegalStateException("Match is not ongoing");
+        }
+        if (match.getDrawOfferedByPlayerId() == null) {
+            return matchService.toMatchResponse(match);
+        }
+        match.setDrawOfferedByPlayerId(null);
+        match.setUpdatedAt(LocalDateTime.now());
+        matchRepository.save(match);
         return matchService.toMatchResponse(match);
     }
 

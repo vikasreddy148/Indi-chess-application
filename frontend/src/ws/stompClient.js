@@ -6,10 +6,12 @@ import { getToken } from '../api/client.js';
 /**
  * Create a STOMP client for the game WebSocket.
  * Connect with: client.activate()
+ * Optional callbacks: createStompClient({ onConnect, onDisconnect }) for connection state.
  * Subscribe: client.subscribe('/topic/game/' + matchId, callback)
  * Send move: client.publish({ destination: '/app/game/' + matchId + '/move', body: JSON.stringify({ moveUci: 'e2e4' }) })
  */
-export function createStompClient() {
+export function createStompClient(callbacks = {}) {
+  const { onConnect, onDisconnect } = callbacks;
   const wsUrl = API_ENDPOINTS.WEBSOCKET.ENDPOINT.replace(/^ws/, 'http');
   const token = getToken();
   const url = token ? `${wsUrl}?token=${encodeURIComponent(token)}` : wsUrl;
@@ -20,6 +22,15 @@ export function createStompClient() {
     reconnectDelay: 5000,
     heartbeatIncoming: 4000,
     heartbeatOutgoing: 4000,
+    onConnect: (frame) => {
+      onConnect?.(frame);
+    },
+    onWebSocketClose: () => {
+      onDisconnect?.();
+    },
+    onStompError: () => {
+      onDisconnect?.();
+    },
   });
 
   return client;
@@ -40,6 +51,23 @@ export function subscribeToGame(stompClient, matchId, onMessage) {
     } catch (e) {
       onMessage({ type: 'ERROR', error: 'Invalid message' });
     }
+  });
+  return () => sub.unsubscribe();
+}
+
+/**
+ * Subscribe to matchmaking: when a match is found, onMatch(matchResponse) is called.
+ * @param {Client} stompClient - activated STOMP client
+ * @param {number} userId - current user id
+ * @param {(match: { id: number }) => void} onMatch
+ * @returns unsubscribe function
+ */
+export function subscribeToMatchmaking(stompClient, userId, onMatch) {
+  const sub = stompClient.subscribe(`/topic/matchmaking/${userId}`, (message) => {
+    try {
+      const body = JSON.parse(message.body);
+      if (body?.id) onMatch(body);
+    } catch (_) {}
   });
   return () => sub.unsubscribe();
 }
@@ -74,10 +102,33 @@ export function sendDrawOffer(stompClient, matchId) {
   });
 }
 
+/**
+ * Accept draw offer via WebSocket.
+ */
+export function sendDrawAccept(stompClient, matchId) {
+  stompClient.publish({
+    destination: `/app/game/${matchId}/draw/accept`,
+    body: JSON.stringify({}),
+  });
+}
+
+/**
+ * Decline draw offer via WebSocket.
+ */
+export function sendDrawDecline(stompClient, matchId) {
+  stompClient.publish({
+    destination: `/app/game/${matchId}/draw/decline`,
+    body: JSON.stringify({}),
+  });
+}
+
 export default {
   createStompClient,
   subscribeToGame,
+  subscribeToMatchmaking,
   sendMove,
   sendResign,
   sendDrawOffer,
+  sendDrawAccept,
+  sendDrawDecline,
 };

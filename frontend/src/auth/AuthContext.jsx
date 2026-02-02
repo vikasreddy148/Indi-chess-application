@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { getToken, setToken } from '../api/client.js';
 import * as authApi from '../api/auth.js';
+import * as userApi from '../api/user.js';
 import { API_ENDPOINTS } from '../config/api.js';
 
 const AuthContext = createContext(null);
@@ -33,6 +34,21 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  const fetchProfile = async () => {
+    const data = await fetch(API_ENDPOINTS.USER.PROFILE, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }).then((res) => (res.ok ? res.json() : Promise.reject(new Error('Invalid token'))));
+    setUser({
+      userId: data.userId,
+      username: data.username,
+      email: data.email,
+      pfpUrl: data.pfpUrl,
+      country: data.country,
+      rating: data.rating,
+    });
+    return data;
+  };
+
   const login = async (usernameOrEmail, password) => {
     const data = await authApi.login({ usernameOrEmail, password });
     setUser({
@@ -40,6 +56,7 @@ export function AuthProvider({ children }) {
       username: data.username,
       email: data.email,
     });
+    await fetchProfile().catch(() => {});
     return data;
   };
 
@@ -50,12 +67,26 @@ export function AuthProvider({ children }) {
       username: data.username,
       email: data.email,
     });
+    await fetchProfile().catch(() => {});
     return data;
   };
 
   const logout = async () => {
     await authApi.logout();
     setUser(null);
+  };
+
+  const updateProfile = async (updates) => {
+    const data = await userApi.updateProfile(updates);
+    setUser({
+      userId: data.userId,
+      username: data.username,
+      email: data.email,
+      pfpUrl: data.pfpUrl,
+      country: data.country,
+      rating: data.rating,
+    });
+    return data;
   };
 
   const value = {
@@ -65,6 +96,8 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
+    updateProfile,
+    fetchProfile,
     token: getToken(),
   };
 

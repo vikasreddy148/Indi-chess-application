@@ -39,6 +39,9 @@ public class Match {
     @Column(name = "last_move_uci", length = 10)
     private String lastMoveUci;
     
+    @Column(name = "draw_offered_by_player_id")
+    private Long drawOfferedByPlayerId;
+    
     @Enumerated(EnumType.STRING)
     @Column(name = "game_type", nullable = false)
     private GameType gameType;

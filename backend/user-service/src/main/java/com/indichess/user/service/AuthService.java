@@ -68,6 +68,27 @@ public class AuthService {
         sessionRepository.findByTokenHash(tokenHash)
                 .ifPresent(sessionRepository::delete);
     }
+
+    private static final long REFRESH_GRACE_SECONDS = 300; // 5 minutes
+
+    @Transactional
+    public AuthResponse refresh(String token) {
+        io.jsonwebtoken.Claims claims = jwtService.getClaimsForRefresh(token, REFRESH_GRACE_SECONDS);
+        Long userId = claims.get("userId", Long.class);
+        String username = claims.getSubject();
+        if (userId == null || username == null) {
+            throw new RuntimeException("Invalid token");
+        }
+        User user = userService.findById(userId);
+        String newToken = jwtService.generateToken(user.getUserId(), user.getUsername());
+        saveSession(user, newToken);
+        AuthResponse response = new AuthResponse();
+        response.setToken(newToken);
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setEmail(user.getEmailId());
+        return response;
+    }
     
     public boolean isTokenBlacklisted(String token) {
         String tokenHash = jwtService.hashToken(token);

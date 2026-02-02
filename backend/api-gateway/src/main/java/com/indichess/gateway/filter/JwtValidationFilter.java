@@ -29,6 +29,7 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
     private static final List<String> EXCLUDED_PATHS = List.of(
             "/api/auth/register",
             "/api/auth/login",
+            "/api/auth/refresh",
             "/actuator",
             "/ws-indichess"
     );

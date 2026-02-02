@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 function LandingPage() {
-  const { user, isAuthenticated, login, register } = useAuth();
+  const { user, isAuthenticated, login, register, logout } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [username, setUsername] = useState('');
@@ -49,12 +49,21 @@ function LandingPage() {
         <div className="text-center text-white">
           <h1 className="text-5xl font-bold mb-2">IndiChess</h1>
           <p className="text-lg text-stone-300 mb-8">Welcome, {user.username}</p>
-          <Link
-            to="/home"
-            className="inline-block px-8 py-3 bg-amber-500 hover:bg-amber-400 text-stone-900 rounded-lg font-semibold transition"
-          >
-            Play Now
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              to="/home"
+              className="inline-block px-8 py-3 bg-amber-500 hover:bg-amber-400 text-stone-900 rounded-lg font-semibold transition"
+            >
+              Play Now
+            </Link>
+            <button
+              type="button"
+              onClick={() => logout().then(() => navigate('/'))}
+              className="px-8 py-3 rounded-lg border border-stone-500 text-stone-300 hover:bg-stone-800 transition"
+            >
+              Log out
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -85,7 +94,18 @@ function LandingPage() {
           </div>
 
           {error && (
-            <p className="text-rose-400 text-sm mb-4">{error}</p>
+            <div className="mb-4">
+              <p className="text-rose-400 text-sm">{error}</p>
+              {(error.includes('already exists') || error.includes('Already exists')) && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(null); }}
+                  className="mt-2 text-sm text-amber-400 hover:text-amber-300 transition"
+                >
+                  Log in instead →
+                </button>
+              )}
+            </div>
           )}
 
           {mode === 'login' ? (
