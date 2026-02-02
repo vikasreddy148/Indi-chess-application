@@ -14,9 +14,11 @@ export const API_ENDPOINTS = {
   MATCH: {
     CREATE: `${API_BASE_URL}/api/matches/create`,
     BY_ID: (id) => `${API_BASE_URL}/api/matches/${id}`,
-    HISTORY: `${API_BASE_URL}/api/matches/user`,
+    USER_HISTORY: `${API_BASE_URL}/api/matches/user`,
+    MOVE_HISTORY: (id) => `${API_BASE_URL}/api/matches/${id}/history`,
     MOVE: (id) => `${API_BASE_URL}/api/matches/${id}/move`,
     RESIGN: (id) => `${API_BASE_URL}/api/matches/${id}/resign`,
+    DRAW: (id) => `${API_BASE_URL}/api/matches/${id}/draw`,
   },
   MATCHMAKING: {
     JOIN: `${API_BASE_URL}/api/matchmaking/join`,

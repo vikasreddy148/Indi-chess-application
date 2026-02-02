@@ -42,10 +42,10 @@ public class Move {
     private Boolean isCapture = false;
     
     @Column(name = "is_check")
-    private Boolean isCheck = false;
+    private Boolean check = false;
     
     @Column(name = "is_checkmate")
-    private Boolean isCheckmate = false;
+    private Boolean checkmate = false;
     
     @Column(name = "fen_after", length = 200)
     private String fenAfter;

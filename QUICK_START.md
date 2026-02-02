@@ -1,124 +1,206 @@
 # Quick Start Guide
 
-## Prerequisites Check
+## Prerequisites
 
-Before running the application, ensure you have:
-- ✅ Java 17 installed
-- ✅ Maven installed
-- ✅ MySQL 8.0+ OR Docker Desktop running
+- **Java 17**, **Maven**, **Node.js 18+**
+- **Docker Desktop** (for DBs/Redis or full stack) **OR** local **MySQL 8.0+**
 
-## Option 1: Using Docker (Recommended)
+---
 
-### Step 1: Start Docker Desktop
-Make sure Docker Desktop is running on your Mac.
+## Option A: Run Everything with Docker
 
-### Step 2: Start Databases
+### 1. Start all services (gateway, user-service, match-service, DBs, Redis, frontend)
+
 ```bash
-cd /Users/vikasreddy/Indi-chess-application
+cd Indi-chess-application
+docker-compose up -d
+```
+
+Wait ~30 seconds for services to start. Frontend: **http://localhost:3000**. API: **http://localhost:8080**.
+
+### 2. Optional: Run only databases + Redis (then run backend/frontend locally)
+
+```bash
 docker-compose up -d user-db match-db redis
 ```
 
-Wait 10-15 seconds for databases to initialize.
+Then start **User Service** (8081), **Match Service** (8082), **API Gateway** (8080), and **Frontend** (see Option B).
 
-### Step 3: Verify Databases are Running
+---
+
+## Option B: Run Locally (no Docker for apps)
+
+### 1. Start databases
+
+**With Docker:**
+
 ```bash
-docker ps
+docker-compose up -d user-db match-db redis
 ```
 
-You should see:
-- `indichess-user-db`
-- `indichess-match-db`
-- `indichess-redis`
+**With local MySQL:** create DBs and set URLs in each service’s `application.yml`:
 
-### Step 4: Run User Service
-```bash
-cd backend/user-service
-mvn spring-boot:run
-```
-
-## Option 2: Using Local MySQL
-
-### Step 1: Start MySQL
-```bash
-# If installed via Homebrew
-brew services start mysql
-
-# Or manually
-mysql.server start
-```
-
-### Step 2: Create Databases
-```bash
-mysql -u root -p
-```
-
-Then run:
 ```sql
 CREATE DATABASE user_service_db;
 CREATE DATABASE match_service_db;
-EXIT;
 ```
 
-### Step 3: Update Configuration
-Edit `backend/user-service/src/main/resources/application.yml`:
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/user_service_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-```
+### 2. Start backend services (in separate terminals)
 
-### Step 4: Run User Service
+Use same DB URLs in `application.yml` (Docker: `localhost:3307` / `3308` if mapped; local MySQL: `3306`).
+
 ```bash
-cd backend/user-service
-mvn spring-boot:run
+# Terminal 1 – User Service (8081)
+cd backend/user-service && mvn spring-boot:run
+
+# Terminal 2 – Match Service (8082)
+cd backend/match-service && mvn spring-boot:run
+
+# Terminal 3 – API Gateway (8080)
+cd backend/api-gateway && mvn spring-boot:run
 ```
+
+### 3. Start frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open **http://localhost:5173**. Set `VITE_API_BASE_URL=http://localhost:8080` and `VITE_WS_ENDPOINT=ws://localhost:8080/ws-indichess` if needed (e.g. in `.env`).
+
+---
+
+## Testing Until We’re Fully Implemented
+
+Use the **API Gateway** at **http://localhost:8080** for all HTTP tests. Replace `YOUR_TOKEN` with the `token` from login/register.
+
+### 1. Auth (User Service via Gateway)
+
+**Register:**
+
+```bash
+curl -s -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"player1","email":"p1@test.com","password":"pass123","country":"India"}'
+```
+
+**Login:**
+
+```bash
+curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"usernameOrEmail":"player1","password":"pass123"}'
+```
+
+Save the `token` from the response and use it as `YOUR_TOKEN` below.
+
+**Profile (protected):**
+
+```bash
+curl -s http://localhost:8080/api/users/profile \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### 2. Match & moves (Match Service via Gateway)
+
+**Create a match** (player1 vs player2; use a second user id for player2 or same for testing):
+
+```bash
+curl -s -X POST http://localhost:8080/api/matches/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-User-Id: 1" \
+  -d '{"player2Id":2,"gameType":"CLASSICAL"}'
+```
+
+Note the `id` from the response (e.g. `1`).
+
+**Get match:**
+
+```bash
+curl -s http://localhost:8080/api/matches/1 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Make a move:**
+
+```bash
+curl -s -X POST http://localhost:8080/api/matches/1/move \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-User-Id: 1" \
+  -d '{"matchId":1,"moveUci":"e2e4","fromSquare":"e2","toSquare":"e4"}'
+```
+
+**Move history:**
+
+```bash
+curl -s http://localhost:8080/api/matches/1/history \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Resign:**
+
+```bash
+curl -s -X POST http://localhost:8080/api/matches/1/resign \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-User-Id: 1"
+```
+
+### 3. Matchmaking (Match Service via Gateway)
+
+**Join queue** (use same JWT and set `X-User-Id` to your user id):
+
+```bash
+curl -s -X POST "http://localhost:8080/api/matchmaking/join?gameType=CLASSICAL" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-User-Id: 1"
+```
+
+**Leave queue:**
+
+```bash
+curl -s -X POST http://localhost:8080/api/matchmaking/leave \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-User-Id: 1"
+```
+
+### 4. Frontend
+
+1. Open **http://localhost:5173** (or **http://localhost:3000** if using Docker frontend).
+2. Use **Get Started** and sign up / log in (auth goes through gateway).
+3. After login, **Home** and **Game** pages use the same gateway APIs and (when implemented) WebSocket at `ws://localhost:8080/ws-indichess` with the same token.
+
+### 5. Health checks
+
+- Gateway: `curl -s http://localhost:8080/actuator/health`
+- User Service: `curl -s http://localhost:8081/actuator/health`
+- Match Service: `curl -s http://localhost:8082/actuator/health`
+
+---
+
+## Ports Summary
+
+| Service      | Port |
+|-------------|------|
+| API Gateway | 8080 |
+| User Service| 8081 |
+| Match Service | 8082 |
+| Frontend (Vite) | 5173 |
+| Frontend (Docker) | 3000 |
+| User DB (Docker) | 3307→3306 |
+| Match DB (Docker) | 3308→3306 |
+| Redis | 6379 |
+
+---
 
 ## Troubleshooting
 
-### "Connection refused" Error
-- **Docker**: Make sure Docker Desktop is running and containers are up
-- **Local MySQL**: Check if MySQL is running: `brew services list` or `mysql.server status`
+- **Connection refused:** Ensure Docker containers are up (`docker ps`) or local MySQL/Redis are running.
+- **Port in use:** Stop the process using 8080, 8081, 8082, or 5173.
+- **401 on protected routes:** Use a valid `Authorization: Bearer <token>` and ensure gateway JWT secret matches user-service.
+- **Match/move errors:** Ensure `X-User-Id` matches a real user and the match is ONGOING for moves.
 
-### Port Already in Use
-- User Service uses port 8081
-- Match Service uses port 8082
-- API Gateway uses port 8080
-- Stop any services using these ports
-
-### Database Connection Issues
-- Verify MySQL is listening on the correct port (3306 for local, 3307 for Docker)
-- Check credentials in `application.yml`
-- Ensure database exists
-
-## Testing the Application
-
-Once User Service is running:
-
-1. **Register a user:**
-```bash
-curl -X POST http://localhost:8081/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "email": "test@example.com",
-    "password": "password123",
-    "country": "India"
-  }'
-```
-
-2. **Login:**
-```bash
-curl -X POST http://localhost:8081/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "usernameOrEmail": "testuser",
-    "password": "password123"
-  }'
-```
-
-## Next Steps
-
-After User Service is running:
-1. Start Match Service (port 8082)
-2. Start API Gateway (port 8080)
-3. Start Frontend (port 3000 or 5173)
+eyJhbGciOiJIUzM4NCJ9.eyJ1c2VySWQiOjMsInN1YiI6InBsYXllcjEiLCJpYXQiOjE3NzAwMzcwOTYsImV4cCI6MTc3MDA1NTA5Nn0.WJ6pKQ1rTGEj7uT2UsvyIrfVLEHY7krUTTajjkYNgtmxGPBQIRpZP7Y8AhpddTvY

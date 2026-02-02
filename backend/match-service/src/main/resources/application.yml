@@ -33,6 +33,10 @@ spring:
       password: ${REDIS_PASSWORD:}
 
 # Feign Client Configuration
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-32chars-min}
+
 feign:
   client:
     config:

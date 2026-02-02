@@ -175,3 +175,9 @@ MIT License
 ## 👤 Author
 
 Vikas Reddy
+
+
+# Replace <YOUR_TOKEN> with the actual JWT token
+curl -X POST "http://localhost:8080/api/matchmaking/join?gameType=BLITZ" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzM4NCJ9.eyJ1c2VySWQiOjEsInN1YiI6ImNoZXNzbWFzdGVyIiwiaWF0IjoxNzcwMDM2NjE0LCJleHAiOjE3NzAwNTQ2MTR9.Z44d1g6ZA9P9tfBQ5DGBpA8Zb8N1sNrQRghv" \
+  -H "Content-Type: application/json"

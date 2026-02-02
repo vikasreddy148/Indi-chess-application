@@ -1,6 +1,8 @@
 services:
   user-service:
-    build: ./backend/user-service
+    build:
+      context: ./backend
+      dockerfile: user-service/Dockerfile
     container_name: indichess-user-service
     ports:
       - "8081:8081"
@@ -22,7 +24,9 @@ services:
       retries: 3
 
   match-service:
-    build: ./backend/match-service
+    build:
+      context: ./backend
+      dockerfile: match-service/Dockerfile
     container_name: indichess-match-service
     ports:
       - "8082:8082"
@@ -33,6 +37,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - USER_SERVICE_URL=http://user-service:8081
+      - JWT_SECRET=8fa3ef8f-befe-49e0-be7e-fc2af06a2597-rttgghjggh
     depends_on:
       - match-db
       - redis
@@ -46,7 +51,9 @@ services:
       retries: 3
 
   api-gateway:
-    build: ./backend/api-gateway
+    build:
+      context: ./backend
+      dockerfile: api-gateway/Dockerfile
     container_name: indichess-api-gateway
     ports:
       - "8080:8080"
