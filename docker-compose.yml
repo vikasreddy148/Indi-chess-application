@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  user-service:
+    build: ./backend/user-service
+    container_name: indichess-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://user-db:3306/user_service_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
+      - JWT_TTL_SECONDS=18000
+    depends_on:
+      - user-db
+    restart: on-failure
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  match-service:
+    build: ./backend/match-service
+    container_name: indichess-match-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://match-db:3306/match_service_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - USER_SERVICE_URL=http://user-service:8081
+    depends_on:
+      - match-db
+      - redis
+    restart: on-failure
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: indichess-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - USER_SERVICE_URL=http://user-service:8081
+      - MATCH_SERVICE_URL=http://match-service:8082
+      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL_DEV=http://localhost:5173
+      - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
+    depends_on:
+      - user-service
+      - match-service
+    restart: on-failure
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: indichess-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    restart: on-failure
+    networks:
+      - indichess-network
+
+  user-db:
+    image: mysql:8.0
+    container_name: indichess-user-db
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: user_service_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - user_db_data:/var/lib/mysql
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  match-db:
+    image: mysql:8.0
+    container_name: indichess-match-db
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: match_service_db
+    ports:
+      - "3308:3306"
+    volumes:
+      - match_db_data:/var/lib/mysql
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: indichess-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  indichess-network:
+    driver: bridge
+
+volumes:
+  user_db_data:
+  match_db_data:

@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: match-service
+  cloud:
+    config:
+      enabled: ${CONFIG_SERVICE_ENABLED:false}
+      uri: ${CONFIG_SERVICE_URI:http://localhost:8888}

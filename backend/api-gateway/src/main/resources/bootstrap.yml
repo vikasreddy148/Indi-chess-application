@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    config:
+      enabled: ${CONFIG_SERVICE_ENABLED:false}
+      uri: ${CONFIG_SERVICE_URI:http://localhost:8888}

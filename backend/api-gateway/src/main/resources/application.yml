@@ -1,0 +1,62 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # User Service Routes
+        - id: user-service
+          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/users/**, /api/auth/**
+          filters:
+            - StripPrefix=0
+        
+        # Match Service Routes
+        - id: match-service
+          uri: ${MATCH_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/matches/**, /api/matchmaking/**, /ws-indichess/**
+          filters:
+            - StripPrefix=0
+      
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - ${FRONTEND_URL:http://localhost:3000}
+              - ${FRONTEND_URL_DEV:http://localhost:5173}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+
+# JWT Configuration
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-32chars-min}
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.indichess.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
