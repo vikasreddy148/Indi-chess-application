@@ -4,6 +4,7 @@ import com.indichess.user.model.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MyUserDetailsService implements UserDetailsService {
     
-    private final UserService userService;
+    private final @Lazy UserService userService;
     
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

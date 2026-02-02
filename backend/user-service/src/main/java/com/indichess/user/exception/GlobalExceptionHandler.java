@@ -38,8 +38,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(response);
     }
     
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        logger.error("Unhandled exception occurred", ex);
         Map<String, Object> response = new HashMap<>();
         response.put("message", "An error occurred");
         response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
