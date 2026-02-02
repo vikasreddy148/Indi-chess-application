@@ -203,4 +203,3 @@ curl -s -X POST http://localhost:8080/api/matchmaking/leave \
 - **401 on protected routes:** Use a valid `Authorization: Bearer <token>` and ensure gateway JWT secret matches user-service.
 - **Match/move errors:** Ensure `X-User-Id` matches a real user and the match is ONGOING for moves.
 
-eyJhbGciOiJIUzM4NCJ9.eyJ1c2VySWQiOjMsInN1YiI6InBsYXllcjEiLCJpYXQiOjE3NzAwMzcwOTYsImV4cCI6MTc3MDA1NTA5Nn0.WJ6pKQ1rTGEj7uT2UsvyIrfVLEHY7krUTTajjkYNgtmxGPBQIRpZP7Y8AhpddTvY

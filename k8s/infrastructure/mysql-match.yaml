@@ -1,0 +1,63 @@
+# MySQL for Match Service - for local Kubernetes development
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: match-db-pvc
+  namespace: indichess
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: match-db
+  namespace: indichess
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: match-db
+  template:
+    metadata:
+      labels:
+        app: match-db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          args:
+            - --default-authentication-plugin=mysql_native_password
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: match-service-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: MYSQL_DATABASE
+              value: match_service_db
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: match-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: match-db
+  namespace: indichess
+spec:
+  selector:
+    app: match-db
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: ClusterIP

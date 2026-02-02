@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-config
+  namespace: indichess
+data:
+  SPRING_APPLICATION_NAME: "user-service"
+  SPRING_DATASOURCE_USERNAME: "root"
+  JPA_DDL_AUTO: "validate"
+  JPA_SHOW_SQL: "false"
