@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 import * as authApi from '../api/auth.js'
 
 const AuthContext = createContext(null)
@@ -23,7 +23,7 @@ function loadStoredUser() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(loadStoredUser)
 
-  const login = async (usernameOrEmail, password) => {
+  const login = useCallback(async (usernameOrEmail, password) => {
     const data = await authApi.login(usernameOrEmail, password)
     const u = {
       userId: data.userId,
@@ -37,9 +37,9 @@ export function AuthProvider({ children }) {
     localStorage.setItem(STORAGE_USER, JSON.stringify(u))
     setUser(u)
     return u
-  }
+  }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authApi.logout()
     } finally {
@@ -48,9 +48,9 @@ export function AuthProvider({ children }) {
       localStorage.removeItem(STORAGE_USER)
       localStorage.removeItem(STORAGE_USER_ID)
     }
-  }
+  }, [])
 
-  const register = async (username, email, password, country = 'USA') => {
+  const register = useCallback(async (username, email, password, country = 'USA') => {
     const data = await authApi.register(username, email, password, country)
     const u = {
       userId: data.userId,
@@ -64,29 +64,32 @@ export function AuthProvider({ children }) {
     localStorage.setItem(STORAGE_USER, JSON.stringify(u))
     setUser(u)
     return u
-  }
+  }, [])
 
-  const getToken = () => localStorage.getItem(STORAGE_TOKEN)
-  const getUserId = () => {
+  const getToken = useCallback(() => localStorage.getItem(STORAGE_TOKEN), [])
+
+  const getUserId = useCallback(() => {
     const id = localStorage.getItem(STORAGE_USER_ID)
     return id ? Number(id) : user?.userId
-  }
+  }, [user])
 
-  const setUserFromProfile = (profile) => {
+  const setUserFromProfile = useCallback((profile) => {
     if (!profile) return
-    const u = {
-      userId: profile.userId ?? user?.userId,
-      username: profile.username ?? user?.username,
-      email: profile.email ?? user?.email,
-      rating: profile.rating ?? user?.rating ?? 1200,
-      country: profile.country ?? user?.country ?? 'USA',
-      pfpUrl: profile.pfpUrl ?? user?.pfpUrl,
-    }
-    setUser(u)
-    localStorage.setItem(STORAGE_USER, JSON.stringify(u))
-  }
+    setUser(prevUser => {
+        const u = {
+          userId: profile.userId ?? prevUser?.userId,
+          username: profile.username ?? prevUser?.username,
+          email: profile.email ?? prevUser?.email,
+          rating: profile.rating ?? prevUser?.rating ?? 1200,
+          country: profile.country ?? prevUser?.country ?? 'USA',
+          pfpUrl: profile.pfpUrl ?? prevUser?.pfpUrl,
+        }
+        localStorage.setItem(STORAGE_USER, JSON.stringify(u))
+        return u
+    })
+  }, [])
 
-  const setUserFromOAuth = (token, userId, username, email) => {
+  const setUserFromOAuth = useCallback((token, userId, username, email) => {
     const u = {
       userId: Number(userId),
       username: username ?? 'Player',
@@ -98,22 +101,22 @@ export function AuthProvider({ children }) {
     localStorage.setItem(STORAGE_USER_ID, String(userId))
     localStorage.setItem(STORAGE_USER, JSON.stringify(u))
     setUser(u)
-  }
+  }, [])
+
+  const value = useMemo(() => ({
+    user,
+    login,
+    logout,
+    register,
+    isAuthenticated: !!user,
+    getToken,
+    getUserId,
+    setUserFromProfile,
+    setUserFromOAuth,
+  }), [user, login, logout, register, getToken, getUserId, setUserFromProfile, setUserFromOAuth])
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        logout,
-        register,
-        isAuthenticated: !!user,
-        getToken,
-        getUserId,
-        setUserFromProfile,
-        setUserFromOAuth,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

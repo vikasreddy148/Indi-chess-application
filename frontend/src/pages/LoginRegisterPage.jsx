@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
 import { Input } from '../components/Input.jsx'
-import { getApiBase } from '../config/api.js'
+import { getOAuthBase } from '../config/api.js'
 
 const TAB_LOGIN = 'login'
 const TAB_REGISTER = 'register'
@@ -143,7 +143,7 @@ export default function LoginRegisterPage() {
               variant="secondary"
               className="w-full py-3.5 rounded-xl border border-emerald-500/50 flex items-center justify-center gap-2"
               onClick={() => {
-                const base = getApiBase()
+                const base = getOAuthBase()
                 const url = base ? `${base}/oauth2/authorization/google` : '/oauth2/authorization/google'
                 window.location.href = url
               }}

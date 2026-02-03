@@ -33,6 +33,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         if (email == null || email.isBlank()) {
             email = oauth2User.getAttribute("sub");
         }
+        if (name == null || name.isBlank()) {
+            name = email != null && email.contains("@") ? email.substring(0, email.indexOf('@')) : "Player";
+        }
         if (email == null || email.isBlank()) {
             response.sendRedirect(UriComponentsBuilder.fromUriString(frontendRedirectUrl)
                     .queryParam("error", "no_email")

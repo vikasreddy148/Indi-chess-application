@@ -7,11 +7,11 @@ spring:
   cloud:
     gateway:
       routes:
-        # User Service Routes
+        # User Service Routes (API + OAuth2: /oauth2/**, /login/oauth2/**)
         - id: user-service
           uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates:
-            - Path=/api/users/**, /api/auth/**, /oauth2/**, /login/oauth2/**
+            - Path=/api/users/**,/api/auth/**,/oauth2/**,/login/oauth2/**
           filters:
             - StripPrefix=0
         

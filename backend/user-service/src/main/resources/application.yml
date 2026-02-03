@@ -1,5 +1,6 @@
 server:
   port: 8081
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -33,12 +34,13 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_OAUTH_CLIENT_ID:1091707426840-juckf6uqsm4954oo9gbr50o0e4g0cpn8.apps.googleusercontent.com}
-            client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET: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}
+            client-id: ${GOOGLE_OAUTH_CLIENT_ID:34991340339-76ob8d25euu502fnvmvmntvmgfrehtqj.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET: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}
             scope:
               - openid
               - profile
               - email
+            redirect-uri: "${OAUTH2_REDIRECT_URI:http://localhost:8080/login/oauth2/code/google}"
 
 management:
   endpoints:

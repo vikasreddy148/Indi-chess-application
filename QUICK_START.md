@@ -96,6 +96,8 @@ curl -s -X POST http://localhost:8080/api/auth/login \
 
 Save the `token` from the response and use it as `YOUR_TOKEN` below.
 
+**Google OAuth (Login with Google):** In [Google Cloud Console](https://console.cloud.google.com/) create OAuth 2.0 credentials (Web application). Add **Authorized redirect URI**: `http://localhost:8080/login/oauth2/code/google`. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for user-service (env or `application.yml`). Then use **Continue with Google** on the login page.
+
 **Profile (protected):**
 
 ```bash

@@ -31,7 +31,9 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
             "/api/auth/login",
             "/api/auth/refresh",
             "/actuator",
-            "/ws-indichess"
+            "/ws-indichess",
+            "/oauth2/",
+            "/login/oauth2/"
     );
     
     @Override
