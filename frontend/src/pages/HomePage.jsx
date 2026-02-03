@@ -7,6 +7,9 @@ import { Card, CardHeader, CardTitle, CardBody } from '../components/Card.jsx'
 import { Badge } from '../components/Badge.jsx'
 import { Input } from '../components/Input.jsx'
 import * as matchApi from '../api/match.js'
+import * as userApi from '../api/users.js'
+import * as ratingsApi from '../api/ratings.js'
+import * as authApi from '../api/auth.js'
 import {
   createStompClient,
   subscribeMatchmaking,
@@ -28,7 +31,7 @@ function statusToBadge(status, myPlayerNumber) {
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { user, logout, getToken, getUserId } = useAuth()
+  const { user, logout, getToken, getUserId, setUserFromProfile } = useAuth()
   const userId = getUserId()
   const [gameType, setGameType] = useState('rapid')
   const [findingMatch, setFindingMatch] = useState(false)
@@ -38,15 +41,50 @@ export default function HomePage() {
   const [editingProfile, setEditingProfile] = useState(false)
   const [profileUsername, setProfileUsername] = useState(user?.username ?? '')
   const [profileEmail, setProfileEmail] = useState(user?.email ?? '')
+  const [profileCountry, setProfileCountry] = useState(user?.country ?? '')
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [changePasswordCurrent, setChangePasswordCurrent] = useState('')
+  const [changePasswordNew, setChangePasswordNew] = useState('')
+  const [changePasswordError, setChangePasswordError] = useState('')
+  const [changePasswordSaving, setChangePasswordSaving] = useState(false)
   const [games, setGames] = useState([])
   const [gamesLoading, setGamesLoading] = useState(true)
+  const [myRatings, setMyRatings] = useState([])
   const stompRef = useRef(null)
   const timerRef = useRef(null)
+
+  const displayRating = ratingsApi.ratingForGameType(myRatings, ratingsApi.GAME_TYPE_MAP[gameType] || 'RAPID')
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    userApi.getProfile().then((data) => {
+      if (!cancelled && data) {
+        setUserFromProfile(data)
+        setProfileUsername(data.username ?? '')
+        setProfileEmail(data.email ?? '')
+        setProfileCountry(data.country ?? '')
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    ratingsApi.getMyRatings().then((data) => {
+      if (!cancelled && Array.isArray(data)) setMyRatings(data)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [userId])
 
   useEffect(() => {
     profileUsername === '' && user?.username && setProfileUsername(user.username)
     profileEmail === '' && user?.email && setProfileEmail(user.email)
-  }, [user, profileUsername, profileEmail])
+    profileCountry === '' && user?.country && setProfileCountry(user.country)
+  }, [user, profileUsername, profileEmail, profileCountry])
 
   useEffect(() => {
     if (!userId) return
@@ -138,6 +176,47 @@ export default function HomePage() {
 
   const formatTimer = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
+  const handleSaveProfile = async () => {
+    setProfileError('')
+    setProfileSaving(true)
+    try {
+      const data = await userApi.updateProfile({
+        username: profileUsername.trim(),
+        email: profileEmail.trim(),
+        country: profileCountry.trim() || undefined,
+      })
+      setUserFromProfile(data)
+      setEditingProfile(false)
+    } catch (err) {
+      setProfileError(err.message || 'Failed to update profile.')
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    setChangePasswordError('')
+    if (!changePasswordCurrent.trim() || !changePasswordNew.trim()) {
+      setChangePasswordError('Please fill in both fields.')
+      return
+    }
+    if (changePasswordNew.length < 6) {
+      setChangePasswordError('New password must be at least 6 characters.')
+      return
+    }
+    setChangePasswordSaving(true)
+    try {
+      await authApi.changePassword(changePasswordCurrent, changePasswordNew)
+      setShowChangePassword(false)
+      setChangePasswordCurrent('')
+      setChangePasswordNew('')
+    } catch (err) {
+      setChangePasswordError(err.message || 'Failed to change password.')
+    } finally {
+      setChangePasswordSaving(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
       <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-slate-900/90 backdrop-blur-md border-b border-white/5">
@@ -151,7 +230,7 @@ export default function HomePage() {
             </div>
             <div>
               <p className="font-semibold text-white">{user?.username ?? 'Player'}</p>
-              <p className="text-sm text-emerald-400">Rating: {user?.rating ?? 1200}</p>
+              <p className="text-sm text-emerald-400">Rating: {displayRating}</p>
             </div>
           </div>
           <button
@@ -234,7 +313,6 @@ export default function HomePage() {
                   {user?.username?.charAt(0)?.toUpperCase() ?? 'P'}
                 </div>
                 <div className="flex-1 space-y-4 min-w-0">
-                  <p className="text-white/80">Country: {user?.country ?? 'USA'}</p>
                   {editingProfile ? (
                     <>
                       <Input
@@ -250,13 +328,21 @@ export default function HomePage() {
                         onChange={(e) => setProfileEmail(e.target.value)}
                         className="bg-white/5 border-emerald-500/40"
                       />
+                      <Input
+                        label="Country"
+                        value={profileCountry}
+                        onChange={(e) => setProfileCountry(e.target.value)}
+                        className="bg-white/5 border-emerald-500/40"
+                      />
+                      {profileError && <p className="text-sm text-red-400">{profileError}</p>}
                       <div className="flex gap-2">
-                        <Button variant="primary" className="rounded-xl" onClick={() => setEditingProfile(false)}>Save</Button>
-                        <Button variant="secondary" className="rounded-xl" onClick={() => setEditingProfile(false)}>Cancel</Button>
+                        <Button variant="primary" className="rounded-xl" disabled={profileSaving} onClick={handleSaveProfile}>Save</Button>
+                        <Button variant="secondary" className="rounded-xl" disabled={profileSaving} onClick={() => { setEditingProfile(false); setProfileError(''); }}>Cancel</Button>
                       </div>
                     </>
                   ) : (
                     <>
+                      <p className="text-white/80">Country: {user?.country ?? '—'}</p>
                       <Input
                         label="Username"
                         value={profileUsername}
@@ -269,7 +355,7 @@ export default function HomePage() {
                         readOnly
                         className="bg-white/5 border-emerald-500/40"
                       />
-                      <button type="button" className="text-emerald-400 hover:text-emerald-300 text-sm font-medium">
+                      <button type="button" className="text-emerald-400 hover:text-emerald-300 text-sm font-medium" onClick={() => setShowChangePassword(true)}>
                         Change Password
                       </button>
                       <div className="flex gap-2">
@@ -323,6 +409,33 @@ export default function HomePage() {
           </Link>
         </footer>
       </main>
+
+      {showChangePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !changePasswordSaving && setShowChangePassword(false)}>
+          <div className="w-full max-w-sm rounded-xl bg-slate-800 border border-white/10 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white mb-4">Change Password</h3>
+            <Input
+              label="Current password"
+              type="password"
+              value={changePasswordCurrent}
+              onChange={(e) => setChangePasswordCurrent(e.target.value)}
+              className="bg-white/5 border-emerald-500/40 mb-3"
+            />
+            <Input
+              label="New password"
+              type="password"
+              value={changePasswordNew}
+              onChange={(e) => setChangePasswordNew(e.target.value)}
+              className="bg-white/5 border-emerald-500/40 mb-3"
+            />
+            {changePasswordError && <p className="text-sm text-red-400 mb-3">{changePasswordError}</p>}
+            <div className="flex gap-2">
+              <Button variant="primary" className="rounded-xl flex-1" disabled={changePasswordSaving} onClick={handleChangePassword}>Change</Button>
+              <Button variant="secondary" className="rounded-xl" disabled={changePasswordSaving} onClick={() => setShowChangePassword(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

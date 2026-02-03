@@ -1,5 +1,6 @@
 package com.indichess.match.service;
 
+import com.indichess.match.config.TimeControlConfig;
 import com.indichess.match.dto.MatchResponse;
 import com.indichess.match.model.GameType;
 import com.indichess.match.model.Match;
@@ -28,7 +29,10 @@ public class MatchService {
         match.setStatus(MatchStatus.ONGOING);
         match.setFenCurrent("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         match.setCurrentPly(0);
-        
+        int initialSeconds = TimeControlConfig.getInitialSeconds(gameType);
+        match.setPlayer1TimeLeftSeconds(initialSeconds);
+        match.setPlayer2TimeLeftSeconds(initialSeconds);
+        match.setLastMoveAt(LocalDateTime.now());
         return matchRepository.save(match);
     }
     
@@ -68,6 +72,9 @@ public class MatchService {
         response.setFinishedAt(match.getFinishedAt());
         response.setCreatedAt(match.getCreatedAt());
         response.setDrawOfferedByPlayerId(match.getDrawOfferedByPlayerId());
+        response.setPlayer1TimeLeftSeconds(match.getPlayer1TimeLeftSeconds());
+        response.setPlayer2TimeLeftSeconds(match.getPlayer2TimeLeftSeconds());
+        response.setLastMoveAt(match.getLastMoveAt());
         return response;
     }
 }

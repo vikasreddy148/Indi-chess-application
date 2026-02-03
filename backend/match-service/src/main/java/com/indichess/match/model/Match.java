@@ -49,6 +49,15 @@ public class Match {
     @Column(name = "started_at")
     private LocalDateTime startedAt;
     
+    @Column(name = "player1_time_left_seconds")
+    private Integer player1TimeLeftSeconds;
+    
+    @Column(name = "player2_time_left_seconds")
+    private Integer player2TimeLeftSeconds;
+    
+    @Column(name = "last_move_at")
+    private LocalDateTime lastMoveAt;
+    
     @Column(name = "finished_at")
     private LocalDateTime finishedAt;
     

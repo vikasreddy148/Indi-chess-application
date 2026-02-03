@@ -72,6 +72,34 @@ export function AuthProvider({ children }) {
     return id ? Number(id) : user?.userId
   }
 
+  const setUserFromProfile = (profile) => {
+    if (!profile) return
+    const u = {
+      userId: profile.userId ?? user?.userId,
+      username: profile.username ?? user?.username,
+      email: profile.email ?? user?.email,
+      rating: profile.rating ?? user?.rating ?? 1200,
+      country: profile.country ?? user?.country ?? 'USA',
+      pfpUrl: profile.pfpUrl ?? user?.pfpUrl,
+    }
+    setUser(u)
+    localStorage.setItem(STORAGE_USER, JSON.stringify(u))
+  }
+
+  const setUserFromOAuth = (token, userId, username, email) => {
+    const u = {
+      userId: Number(userId),
+      username: username ?? 'Player',
+      email: email ?? '',
+      rating: 1200,
+      country: 'USA',
+    }
+    localStorage.setItem(STORAGE_TOKEN, token)
+    localStorage.setItem(STORAGE_USER_ID, String(userId))
+    localStorage.setItem(STORAGE_USER, JSON.stringify(u))
+    setUser(u)
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -82,6 +110,8 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!user,
         getToken,
         getUserId,
+        setUserFromProfile,
+        setUserFromOAuth,
       }}
     >
       {children}

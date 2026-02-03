@@ -68,7 +68,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173**. Set `VITE_API_BASE_URL=http://localhost:8080` and `VITE_WS_ENDPOINT=ws://localhost:8080/ws-indichess` if needed (e.g. in `.env`).
+Open **http://localhost:5173**. Set `VITE_API_BASE=http://localhost:8080` in `.env` so the app talks to the API Gateway (WebSocket uses the same origin).
 
 ---
 

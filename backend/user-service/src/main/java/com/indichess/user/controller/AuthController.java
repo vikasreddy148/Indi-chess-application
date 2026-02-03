@@ -1,6 +1,7 @@
 package com.indichess.user.controller;
 
 import com.indichess.user.dto.AuthResponse;
+import com.indichess.user.dto.ChangePasswordRequest;
 import com.indichess.user.dto.LoginRequest;
 import com.indichess.user.dto.RegisterRequest;
 import com.indichess.user.service.AuthService;
@@ -8,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -46,5 +49,14 @@ public class AuthController {
         String token = authHeader.substring(7);
         AuthResponse response = authService.refresh(token);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        String username = ((UserDetails) authentication.getPrincipal()).getUsername();
+        authService.changePassword(username, request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.ok().build();
     }
 }

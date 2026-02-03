@@ -61,6 +61,18 @@ public class AuthService {
         response.setEmail(user.getEmailId());
         return response;
     }
+
+    public AuthResponse loginWithOAuth2(String email, String name) {
+        User user = userService.findOrCreateByOAuth2(email, name);
+        String token = jwtService.generateToken(user.getUserId(), user.getUsername());
+        saveSession(user, token);
+        AuthResponse response = new AuthResponse();
+        response.setToken(token);
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setEmail(user.getEmailId());
+        return response;
+    }
     
     @Transactional
     public void logout(String token) {
@@ -93,6 +105,17 @@ public class AuthService {
     public boolean isTokenBlacklisted(String token) {
         String tokenHash = jwtService.hashToken(token);
         return sessionRepository.findByTokenHash(tokenHash).isEmpty(); // If not found, token is blacklisted
+    }
+
+    @Transactional
+    public void changePassword(String username, String currentPassword, String newPassword) {
+        User user = userService.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new RuntimeException("Current password is incorrect");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userService.saveUser(user);
     }
     
     private void saveSession(User user, String token) {

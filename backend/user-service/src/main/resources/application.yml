@@ -53,6 +53,8 @@ app:
   jwt:
     secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-32chars-min}
     ttl-seconds: ${JWT_TTL_SECONDS:18000}
+  oauth2:
+    frontend-redirect-url: ${OAUTH2_FRONTEND_REDIRECT:http://localhost:5173/oauth/callback}
 
 logging:
   level:

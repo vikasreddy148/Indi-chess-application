@@ -1,6 +1,8 @@
 package com.indichess.match.service;
 
+import com.indichess.match.config.TimeControlConfig;
 import com.indichess.match.dto.MatchResponse;
+import com.indichess.match.model.GameType;
 import com.indichess.match.model.Match;
 import com.indichess.match.model.MatchStatus;
 import com.indichess.match.model.Move;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,38 @@ public class GameService {
         if (isWhite != whiteToMove) {
             throw new IllegalStateException("Not your turn");
         }
+
+        LocalDateTime lastMoveAt = match.getLastMoveAt() != null ? match.getLastMoveAt() : match.getStartedAt();
+        if (lastMoveAt == null) lastMoveAt = LocalDateTime.now();
+        long elapsedSeconds = ChronoUnit.SECONDS.between(lastMoveAt, LocalDateTime.now());
+        int increment = TimeControlConfig.getIncrementSeconds(match.getGameType());
+        if (whiteToMove) {
+            int p1Time = match.getPlayer1TimeLeftSeconds() != null ? match.getPlayer1TimeLeftSeconds() : TimeControlConfig.getInitialSeconds(match.getGameType());
+            int after = (int) (p1Time - elapsedSeconds + increment);
+            match.setPlayer1TimeLeftSeconds(Math.max(0, after));
+            if (after <= 0) {
+                match.setStatus(MatchStatus.PLAYER2_WON);
+                match.setFinishedAt(LocalDateTime.now());
+                match.setLastMoveAt(LocalDateTime.now());
+                matchRepository.save(match);
+                ratingService.updateRatingsAfterMatch(match);
+                return matchService.toMatchResponse(match);
+            }
+        } else {
+            int p2Time = match.getPlayer2TimeLeftSeconds() != null ? match.getPlayer2TimeLeftSeconds() : TimeControlConfig.getInitialSeconds(match.getGameType());
+            int after = (int) (p2Time - elapsedSeconds + increment);
+            match.setPlayer2TimeLeftSeconds(Math.max(0, after));
+            if (after <= 0) {
+                match.setStatus(MatchStatus.PLAYER1_WON);
+                match.setFinishedAt(LocalDateTime.now());
+                match.setLastMoveAt(LocalDateTime.now());
+                matchRepository.save(match);
+                ratingService.updateRatingsAfterMatch(match);
+                return matchService.toMatchResponse(match);
+            }
+        }
+        match.setLastMoveAt(LocalDateTime.now());
+
         ValidationResult result = moveValidationService.validateAndApply(match.getFenCurrent(), moveUci);
         if (!result.valid()) {
             throw new IllegalArgumentException(result.error());

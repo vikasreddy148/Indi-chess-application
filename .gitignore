@@ -123,3 +123,5 @@ temp/
 secrets/
 *.pem
 *.key
+plans/
+QUICK_START.md

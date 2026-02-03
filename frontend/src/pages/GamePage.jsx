@@ -7,6 +7,8 @@ import { Button } from '../components/Button.jsx'
 import { Card } from '../components/Card.jsx'
 import { ChessBoard } from '../components/ChessBoard.jsx'
 import * as matchApi from '../api/match.js'
+import * as userApi from '../api/users.js'
+import * as ratingsApi from '../api/ratings.js'
 import {
   createStompClient,
   subscribeGame,
@@ -29,9 +31,13 @@ export default function GamePage() {
   const [selectedSquare, setSelectedSquare] = useState(null)
   const [lastMove, setLastMove] = useState(null)
   const [moveHistory, setMoveHistory] = useState([])
+  const [opponent, setOpponent] = useState(null)
+  const [myRatings, setMyRatings] = useState([])
+  const [opponentRatings, setOpponentRatings] = useState([])
   const stompRef = useRef(null)
 
   const amWhite = match && userId === match.player1Id
+  const opponentId = match && (amWhite ? match.player2Id : match.player1Id)
   const fen = match?.fenCurrent || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
   const game = new Chess(fen)
   const whiteToMove = game.turn() === 'w'
@@ -70,6 +76,78 @@ export default function GamePage() {
   }, [matchId, match?.currentPly])
 
   useEffect(() => {
+    if (!opponentId) {
+      setOpponent(null)
+      return
+    }
+    let cancelled = false
+    userApi.getUserById(opponentId).then((data) => {
+      if (!cancelled) setOpponent(data)
+    }).catch(() => {
+      if (!cancelled) setOpponent(null)
+    })
+    return () => { cancelled = true }
+  }, [opponentId])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    ratingsApi.getMyRatings().then((data) => {
+      if (!cancelled && Array.isArray(data)) setMyRatings(data)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [userId])
+
+  useEffect(() => {
+    if (!opponentId) {
+      setOpponentRatings([])
+      return
+    }
+    let cancelled = false
+    ratingsApi.getUserRatings(opponentId).then((data) => {
+      if (!cancelled && Array.isArray(data)) setOpponentRatings(data)
+    }).catch(() => {
+      if (!cancelled) setOpponentRatings([])
+    })
+    return () => { cancelled = true }
+  }, [opponentId])
+
+  const gameTypeStr = match?.gameType || 'RAPID'
+  const myRating = ratingsApi.ratingForGameType(myRatings, gameTypeStr)
+  const opponentRating = ratingsApi.ratingForGameType(opponentRatings, gameTypeStr)
+
+  const [clockWhite, setClockWhite] = useState(null)
+  const [clockBlack, setClockBlack] = useState(null)
+  useEffect(() => {
+    if (!match || match.status !== 'ONGOING') return
+    const p1 = match.player1TimeLeftSeconds ?? 600
+    const p2 = match.player2TimeLeftSeconds ?? 600
+    const lastMoveAt = match.lastMoveAt ? new Date(match.lastMoveAt).getTime() : Date.now()
+    const whiteToMove = game.turn() === 'w'
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - lastMoveAt) / 1000)
+      if (whiteToMove) {
+        setClockWhite(Math.max(0, p1 - elapsed))
+        setClockBlack(p2)
+      } else {
+        setClockWhite(p1)
+        setClockBlack(Math.max(0, p2 - elapsed))
+      }
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [match?.player1TimeLeftSeconds, match?.player2TimeLeftSeconds, match?.lastMoveAt, match?.currentPly, match?.status])
+  const formatClock = (seconds) => {
+    if (seconds == null) return '0:00'
+    const m = Math.floor(seconds / 60)
+    const s = Math.max(0, Math.floor(seconds % 60))
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+  const displayWhiteClock = clockWhite != null ? formatClock(clockWhite) : formatClock(match?.player1TimeLeftSeconds ?? 600)
+  const displayBlackClock = clockBlack != null ? formatClock(clockBlack) : formatClock(match?.player2TimeLeftSeconds ?? 600)
+
+  useEffect(() => {
     if (!matchId || !match || loading) return
     const token = getToken()
     const client = createStompClient(() => token)
@@ -85,6 +163,12 @@ export default function GamePage() {
           }
         }
       })
+      matchApi.getMatch(matchId).then((data) => {
+        setMatch(data)
+        if (data?.lastMoveUci && data.lastMoveUci.length >= 4) {
+          setLastMove({ from: data.lastMoveUci.slice(0, 2), to: data.lastMoveUci.slice(2, 4) })
+        }
+      }).catch(() => {})
     }
     client.onDisconnect = () => setConnected(false)
     client.onStompError = () => setConnected(false)
@@ -183,8 +267,6 @@ export default function GamePage() {
     )
   }
 
-  const opponentId = amWhite ? match.player2Id : match.player1Id
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 flex flex-col">
       <header className="flex items-center justify-between px-6 py-4 bg-slate-900/90 backdrop-blur-md border-b border-white/5 shrink-0">
@@ -213,13 +295,29 @@ export default function GamePage() {
         </div>
 
         <aside className="w-full lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
+          <div className="flex items-center gap-3 px-2 text-sm text-white/80">
+            <span>Your rating:</span>
+            <span className="font-medium text-emerald-400">{myRating}</span>
+          </div>
+          {match.status === 'ONGOING' && (
+            <Card className="p-3 flex flex-col gap-2">
+              <div className={`flex justify-between items-center rounded-lg px-3 py-2 ${game.turn() === 'w' ? 'bg-white/10' : 'bg-transparent'}`}>
+                <span className="text-white/80 text-sm">White</span>
+                <span className="font-mono font-semibold text-white tabular-nums">{displayWhiteClock}</span>
+              </div>
+              <div className={`flex justify-between items-center rounded-lg px-3 py-2 ${game.turn() === 'b' ? 'bg-white/10' : 'bg-transparent'}`}>
+                <span className="text-white/80 text-sm">Black</span>
+                <span className="font-mono font-semibold text-white tabular-nums">{displayBlackClock}</span>
+              </div>
+            </Card>
+          )}
           <Card className="p-4 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-slate-600 flex items-center justify-center text-white/80 text-lg font-bold">
-              {String(opponentId).slice(-1)}
+              {opponent ? (opponent.username?.charAt(0)?.toUpperCase() ?? String(opponentId).slice(-1)) : '…'}
             </div>
             <div>
-              <p className="font-bold text-white">Opponent #{opponentId}</p>
-              <p className="text-sm text-emerald-400">Rating: —</p>
+              <p className="font-bold text-white">{opponent ? opponent.username : `Opponent #${opponentId}`}</p>
+              <p className="text-sm text-emerald-400">Rating: {opponentRating}</p>
             </div>
           </Card>
 
@@ -232,6 +330,22 @@ export default function GamePage() {
             </div>
           )}
 
+          {match.status !== 'ONGOING' && (
+            <div className={`rounded-xl py-4 px-4 text-center font-semibold border ${
+              match.status === 'DRAW' || match.status === 'ABANDONED'
+                ? 'bg-white/10 text-white/90 border-white/20'
+                : (match.status === 'PLAYER1_WON' && amWhite) || (match.status === 'PLAYER2_WON' && !amWhite)
+                  ? 'bg-emerald-500/30 text-emerald-400 border-emerald-500/50'
+                  : 'bg-red-500/20 text-red-400 border-red-500/40'
+            }`}>
+              {match.status === 'DRAW' || match.status === 'ABANDONED'
+                ? (match.status === 'DRAW' ? 'Game drawn' : 'Game abandoned')
+                : (match.status === 'PLAYER1_WON' && amWhite) || (match.status === 'PLAYER2_WON' && !amWhite)
+                  ? 'You won'
+                  : 'You lost'}
+            </div>
+          )}
+
           <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <div className="px-4 py-3 border-b border-white/10 font-semibold text-white">Moves</div>
             <div className="flex-1 overflow-y-auto p-4 text-sm text-white/90 font-mono space-y-1 max-h-64">
@@ -239,7 +353,7 @@ export default function GamePage() {
             </div>
           </Card>
 
-          {match.status === 'ONGOING' && (
+          {(match.status === 'ONGOING' ? (
             <div className="grid grid-cols-2 gap-2">
               <Button variant="danger" className="rounded-xl py-3 flex items-center justify-center gap-2" onClick={handleResign}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
@@ -257,7 +371,11 @@ export default function GamePage() {
                 </>
               )}
             </div>
-          )}
+          ) : (
+            <Link to="/home" className="block">
+              <Button variant="primary" className="w-full rounded-xl py-3">Back to Home</Button>
+            </Link>
+          ))}
         </aside>
       </main>
     </div>

@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateProfileRequest {
+    private String username;
+    private String email;
     private String country;
     private String pfpUrl;
 }

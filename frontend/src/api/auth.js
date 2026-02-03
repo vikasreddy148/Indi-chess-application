@@ -25,3 +25,10 @@ export async function logout() {
     // ignore
   }
 }
+
+export async function changePassword(currentPassword, newPassword) {
+  await api.post('/api/auth/change-password', {
+    currentPassword,
+    newPassword,
+  })
+}

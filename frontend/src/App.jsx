@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import LoginRegisterPage from './pages/LoginRegisterPage.jsx'
+import OAuthCallbackPage from './pages/OAuthCallbackPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 import GamePage from './pages/GamePage.jsx'
 import LocalGamePage from './pages/LocalGamePage.jsx'
@@ -29,6 +30,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingOrRedirect />} />
       <Route path="/login" element={<PublicOnlyRoute><LoginRegisterPage /></PublicOnlyRoute>} />
+      <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
       <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/game/:gameId" element={<ProtectedRoute><GamePage /></ProtectedRoute>} />
       <Route path="/local" element={<LocalGamePage />} />

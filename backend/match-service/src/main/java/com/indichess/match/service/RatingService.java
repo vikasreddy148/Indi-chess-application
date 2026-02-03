@@ -1,5 +1,6 @@
 package com.indichess.match.service;
 
+import com.indichess.match.dto.RatingResponse;
 import com.indichess.match.model.GameType;
 import com.indichess.match.model.Match;
 import com.indichess.match.model.MatchStatus;
@@ -9,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,12 @@ public class RatingService {
         return ratingRepository.findByUserIdAndGameType(userId, gameType)
                 .map(Rating::getRating)
                 .orElse(DEFAULT_RATING);
+    }
+
+    public List<RatingResponse> getRatingsForUser(Long userId) {
+        return ratingRepository.findAllByUserIdOrderByGameType(userId).stream()
+                .map(r -> new RatingResponse(r.getGameType(), r.getRating()))
+                .collect(Collectors.toList());
     }
 
     @Transactional

@@ -82,9 +82,44 @@ public class UserService {
     }
 
     @Transactional
+    public User findOrCreateByOAuth2(String email, String name) {
+        Optional<User> existing = userRepository.findByEmailId(email);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        String username = name != null && !name.isBlank()
+                ? name.replaceAll("[^a-zA-Z0-9]", "").toLowerCase()
+                : email.split("@")[0];
+        if (username.length() > 50) username = username.substring(0, 50);
+        if (userRepository.existsByUsername(username)) {
+            username = username + (int) (Math.random() * 10000);
+        }
+        return createUser(username, email, "oauth2-no-password", "USA");
+    }
+
+    @Transactional
+    public User saveUser(User user) {
+        return userRepository.save(user);
+    }
+
+    @Transactional
     public UserResponse updateProfile(String username, com.indichess.user.dto.UpdateProfileRequest request) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            if (!request.getUsername().equals(user.getUsername())
+                    && userRepository.existsByUsername(request.getUsername())) {
+                throw new RuntimeException("Username already taken");
+            }
+            user.setUsername(request.getUsername().trim());
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            if (!request.getEmail().equals(user.getEmailId())
+                    && userRepository.existsByEmailId(request.getEmail())) {
+                throw new RuntimeException("Email already taken");
+            }
+            user.setEmailId(request.getEmail().trim());
+        }
         if (request.getCountry() != null) {
             user.setCountry(request.getCountry());
         }

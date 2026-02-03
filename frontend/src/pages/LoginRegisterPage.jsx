@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
 import { Input } from '../components/Input.jsx'
+import { getApiBase } from '../config/api.js'
 
 const TAB_LOGIN = 'login'
 const TAB_REGISTER = 'register'
@@ -141,6 +142,11 @@ export default function LoginRegisterPage() {
               type="button"
               variant="secondary"
               className="w-full py-3.5 rounded-xl border border-emerald-500/50 flex items-center justify-center gap-2"
+              onClick={() => {
+                const base = getApiBase()
+                const url = base ? `${base}/oauth2/authorization/google` : '/oauth2/authorization/google'
+                window.location.href = url
+              }}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
