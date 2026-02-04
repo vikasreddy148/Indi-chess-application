@@ -24,7 +24,14 @@ export async function apiRequest(path, options = {}) {
     } catch {
       body = { message: text || res.statusText }
     }
-    throw new Error(body.message || body.error || `Request failed: ${res.status}`)
+    const message = body.message || body.error || `Request failed: ${res.status}`
+    const err = new Error(
+      body.errors && typeof body.errors === 'object'
+        ? `${message}: ${Object.values(body.errors).join(' ')}`
+        : message
+    )
+    err.errors = body.errors
+    throw err
   }
   const contentType = res.headers.get('content-type')
   if (contentType && contentType.includes('application/json')) {

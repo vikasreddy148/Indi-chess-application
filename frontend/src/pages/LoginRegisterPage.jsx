@@ -42,9 +42,18 @@ export default function LoginRegisterPage() {
         setError('Please fill in username, email, and password.')
         return
       }
+      const u = username.trim()
+      if (u.length < 4 || u.length > 50) {
+        setError('Username must be between 4 and 50 characters.')
+        return
+      }
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters.')
+        return
+      }
       setLoading(true)
       try {
-        await register(username.trim(), email.trim(), password)
+        await register(u, email.trim(), password)
         navigate('/home', { replace: true })
       } catch (err) {
         setError(err.message || 'Registration failed.')
