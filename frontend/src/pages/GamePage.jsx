@@ -6,6 +6,21 @@ import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
 import { Card } from '../components/Card.jsx'
 import { ChessBoard } from '../components/ChessBoard.jsx'
+
+function ResignConfirmModal({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resign-title">
+      <div className="w-full max-w-sm rounded-xl bg-slate-800 border border-white/10 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 id="resign-title" className="text-lg font-semibold text-white mb-2">Resign game?</h3>
+        <p className="text-white/80 text-sm mb-6">Are you sure? This will end the game.</p>
+        <div className="flex gap-3">
+          <Button variant="danger" className="flex-1 rounded-xl" onClick={onConfirm}>Resign</Button>
+          <Button variant="secondary" className="flex-1 rounded-xl" onClick={onCancel}>Cancel</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 import * as matchApi from '../api/match.js'
 import * as userApi from '../api/users.js'
 import * as ratingsApi from '../api/ratings.js'
@@ -116,6 +131,7 @@ export default function GamePage() {
   const myRating = ratingsApi.ratingForGameType(myRatings, gameTypeStr)
   const opponentRating = ratingsApi.ratingForGameType(opponentRatings, gameTypeStr)
 
+  const [showResignConfirm, setShowResignConfirm] = useState(false)
   const [clockWhite, setClockWhite] = useState(null)
   const [clockBlack, setClockBlack] = useState(null)
   useEffect(() => {
@@ -208,7 +224,10 @@ export default function GamePage() {
     setSelectedSquare(null)
   }
 
-  const handleResign = () => {
+  const handleResignClick = () => setShowResignConfirm(true)
+
+  const handleResignConfirm = () => {
+    setShowResignConfirm(false)
     const client = stompRef.current
     if (client && client.connected) sendResign(client, matchId)
     else matchApi.resign(matchId).then((updated) => setMatch(updated)).catch(() => {})
@@ -355,7 +374,7 @@ export default function GamePage() {
 
           {(match.status === 'ONGOING' ? (
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="danger" className="rounded-xl py-3 flex items-center justify-center gap-2" onClick={handleResign}>
+              <Button variant="danger" className="rounded-xl py-3 flex items-center justify-center gap-2" onClick={handleResignClick}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
                 Resign
               </Button>
@@ -378,6 +397,42 @@ export default function GamePage() {
           ))}
         </aside>
       </main>
+
+      {showResignConfirm && (
+        <ResignConfirmModal
+          onConfirm={handleResignConfirm}
+          onCancel={() => setShowResignConfirm(false)}
+        />
+      )}
+
+      {match.status !== 'ONGOING' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
+          <div className="w-full max-w-md rounded-2xl bg-slate-800 border border-white/10 p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 id="game-over-title" className="text-2xl font-bold text-white text-center mb-2">
+              {match.status === 'DRAW' || match.status === 'ABANDONED'
+                ? (match.status === 'DRAW' ? 'Game drawn' : 'Game abandoned')
+                : (match.status === 'PLAYER1_WON' && amWhite) || (match.status === 'PLAYER2_WON' && !amWhite)
+                  ? 'You won'
+                  : 'You lost'}
+            </h2>
+            <p className="text-white/80 text-center text-sm mb-6">
+              {match.status === 'DRAW' ? 'The game ended in a draw.'
+                : match.status === 'ABANDONED' ? 'The game was abandoned.'
+                : (match.status === 'PLAYER1_WON' && !amWhite) || (match.status === 'PLAYER2_WON' && amWhite)
+                  ? 'Opponent resigned.'
+                  : 'Congratulations!'}
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link to="/home" className="block">
+                <Button variant="primary" className="w-full py-3 rounded-xl">Back to Home</Button>
+              </Link>
+              <Link to="/home" className="block">
+                <Button variant="secondary" className="w-full py-3 rounded-xl">New game</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

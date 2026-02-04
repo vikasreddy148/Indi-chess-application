@@ -65,7 +65,7 @@ function Hero() {
               </Link>
               <Link to="/local">
                 <Button variant="secondary" className="px-8 py-4 text-lg rounded-xl border border-emerald-400/60">
-                  Play with Friends
+                  Play Locally
                 </Button>
               </Link>
             </>
