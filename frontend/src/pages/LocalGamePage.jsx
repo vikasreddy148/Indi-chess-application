@@ -4,28 +4,56 @@ import { Chess } from 'chess.js'
 import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
 import { ChessBoard } from '../components/ChessBoard.jsx'
+import { GameOverModal } from '../components/GameOverModal.jsx'
 
 export default function LocalGamePage() {
   const [game, setGame] = useState(() => new Chess())
   const [selectedSquare, setSelectedSquare] = useState(null)
   const [lastMove, setLastMove] = useState(null)
+  const [gameOver, setGameOver] = useState(null)
 
   const turn = game.turn() === 'w' ? 'White' : 'Black'
   const legalSquares = selectedSquare
     ? game.moves({ square: selectedSquare, verbose: true }).map((m) => m.to)
     : []
 
+  const checkGameOver = (chess) => {
+    if (chess.isGameOver()) {
+      let winner = null
+      let reason = null
+
+      if (chess.isCheckmate()) {
+        winner = chess.turn() === 'w' ? 'Black' : 'White'
+        reason = 'Checkmate'
+      } else if (chess.isDraw()) {
+        winner = 'Draw'
+        if (chess.isStalemate()) reason = 'Stalemate'
+        else if (chess.isThreefoldRepetition()) reason = 'Threefold Repetition'
+        else if (chess.isInsufficientMaterial()) reason = 'Insufficient Material'
+        else reason = 'Draw'
+      }
+      
+      setGameOver({ winner, reason })
+    }
+  }
+
   const handleSquareClick = (sq) => {
+    if (gameOver) return
+
     const piece = game.get(sq)
     if (piece && piece.color === game.turn()) {
       setSelectedSquare(sq)
       return
     }
     if (selectedSquare && legalSquares.includes(sq)) {
-      const move = game.move({ from: selectedSquare, to: sq })
+      const gameCopy = new Chess(game.fen())
+      const move = gameCopy.move({ from: selectedSquare, to: sq })
+      
       if (move) {
+        setGame(gameCopy)
         setLastMove({ from: move.from, to: move.to })
         setSelectedSquare(null)
+        checkGameOver(gameCopy)
       }
       return
     }
@@ -36,6 +64,7 @@ export default function LocalGamePage() {
     setGame(new Chess())
     setSelectedSquare(null)
     setLastMove(null)
+    setGameOver(null)
   }
 
   return (
@@ -48,14 +77,23 @@ export default function LocalGamePage() {
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
-        <ChessBoard
-          fen={game.fen()}
-          orientation="white"
-          selectedSquare={selectedSquare}
-          lastMove={lastMove}
-          legalMoves={legalSquares}
-          onSquareClick={handleSquareClick}
-        />
+        <div className="relative">
+          <ChessBoard
+            fen={game.fen()}
+            orientation="white"
+            selectedSquare={selectedSquare}
+            lastMove={lastMove}
+            legalMoves={legalSquares}
+            onSquareClick={handleSquareClick}
+          />
+          {gameOver && (
+            <GameOverModal
+              winner={gameOver.winner}
+              reason={gameOver.reason}
+              onRestart={resetGame}
+            />
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Button

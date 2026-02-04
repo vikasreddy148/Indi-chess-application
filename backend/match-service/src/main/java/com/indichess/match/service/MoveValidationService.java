@@ -56,26 +56,33 @@ public class MoveValidationService {
             if (!board.isValidMove(fromRank, fromFile, toRank, toFile, promotion)) {
                 return ValidationResult.invalid("Illegal move: " + moveUci);
             }
+            // Must not leave own king in check
+            FenBoard copy = board.copy();
+            copy.applyMove(fromRank, fromFile, toRank, toFile, promotion);
+            if (copy.isKingInCheck(!copy.whiteToMove)) {
+                return ValidationResult.invalid("Move leaves king in check");
+            }
             String newFen = board.applyMove(fromRank, fromFile, toRank, toFile, promotion);
             boolean isCheck = board.isCheckAfterMove();
             boolean isCheckmate = board.isCheckmateAfterMove();
-            return ValidationResult.valid(newFen, isCheck, isCheckmate);
+            boolean isStalemate = board.isStalemateAfterMove();
+            return ValidationResult.valid(newFen, isCheck, isCheckmate, isStalemate);
         } catch (Exception e) {
             return ValidationResult.invalid("Invalid position or move: " + e.getMessage());
         }
     }
 
-    public record ValidationResult(boolean valid, String newFen, boolean isCheck, boolean isCheckmate, String error) {
-        static ValidationResult valid(String newFen, boolean isCheck, boolean isCheckmate) {
-            return new ValidationResult(true, newFen, isCheck, isCheckmate, null);
+    public record ValidationResult(boolean valid, String newFen, boolean isCheck, boolean isCheckmate, boolean isStalemate, String error) {
+        static ValidationResult valid(String newFen, boolean isCheck, boolean isCheckmate, boolean isStalemate) {
+            return new ValidationResult(true, newFen, isCheck, isCheckmate, isStalemate, null);
         }
         static ValidationResult invalid(String error) {
-            return new ValidationResult(false, null, false, false, error);
+            return new ValidationResult(false, null, false, false, false, error);
         }
     }
 
     /**
-     * Minimal FEN board for move validation and application.
+     * FEN board with full chess rules: piece movement, check, checkmate, stalemate.
      */
     private static class FenBoard {
         private final char[][] board = new char[8][8];
@@ -84,6 +91,19 @@ public class MoveValidationService {
         private int epFile = -1;
         private int halfMove = 0;
         private int fullMove = 1;
+
+        FenBoard() {}
+
+        FenBoard copy() {
+            FenBoard b = new FenBoard();
+            for (int r = 0; r < 8; r++) System.arraycopy(board[r], 0, b.board[r], 0, 8);
+            b.whiteToMove = whiteToMove;
+            b.castling = castling;
+            b.epFile = epFile;
+            b.halfMove = halfMove;
+            b.fullMove = fullMove;
+            return b;
+        }
 
         static FenBoard fromFen(String fen) {
             FenBoard b = new FenBoard();
@@ -116,37 +136,204 @@ public class MoveValidationService {
             return p != 0 && Character.isUpperCase(p);
         }
 
+        /** Path clear between (fromR,fromC) and (toR,toC) exclusive; assumes straight or diagonal. */
+        boolean pathClear(int fromR, int fromC, int toR, int toC) {
+            int dr = Integer.compare(toR - fromR, 0);
+            int dc = Integer.compare(toC - fromC, 0);
+            int r = fromR + dr;
+            int c = fromC + dc;
+            while (r != toR || c != toC) {
+                if (pieceAt(r, c) != 0) return false;
+                r += dr;
+                c += dc;
+            }
+            return true;
+        }
+
+        /** Pseudo-legal: piece can move from->to by piece rules; does not check same color or path for capture. */
+        boolean pieceCanMove(int fromR, int fromC, int toR, int toC, char promotion) {
+            char p = pieceAt(fromR, fromC);
+            if (p == 0) return false;
+            boolean white = Character.isUpperCase(p);
+            char target = pieceAt(toR, toC);
+            boolean capturing = target != 0;
+
+            switch (Character.toUpperCase(p)) {
+                case 'P': // Pawn
+                    int dir = white ? -1 : 1;
+                    int startRank = white ? 6 : 1;
+                    if (fromC == toC) {
+                        if (capturing) return false;
+                        if (toR == fromR + dir) {
+                            if ((white && toR == 0) || (!white && toR == 7)) return promotion == 'Q' || promotion == 'R' || promotion == 'B' || promotion == 'N';
+                            return true;
+                        }
+                        if (fromR == startRank && toR == fromR + 2 * dir && pathClear(fromR, fromC, toR, toC)) return true;
+                        return false;
+                    }
+                    if (Math.abs(fromC - toC) != 1 || toR != fromR + dir) return false;
+                    if (!capturing) {
+                        // En passant
+                        if (epFile >= 0 && toC == epFile && toR == (white ? 2 : 5)) return true;
+                        return false;
+                    }
+                    if (white && toR == 0) return promotion == 'Q' || promotion == 'R' || promotion == 'B' || promotion == 'N';
+                    if (!white && toR == 7) return promotion == 'Q' || promotion == 'R' || promotion == 'B' || promotion == 'N';
+                    return true;
+                case 'N': // Knight
+                    int dr = Math.abs(toR - fromR);
+                    int dc = Math.abs(toC - fromC);
+                    return (dr == 2 && dc == 1) || (dr == 1 && dc == 2);
+                case 'B': // Bishop
+                    if (Math.abs(toR - fromR) != Math.abs(toC - fromC)) return false;
+                    return pathClear(fromR, fromC, toR, toC);
+                case 'R': // Rook
+                    if (fromR != toR && fromC != toC) return false;
+                    return pathClear(fromR, fromC, toR, toC);
+                case 'Q': // Queen
+                    boolean diag = Math.abs(toR - fromR) == Math.abs(toC - fromC);
+                    boolean line = fromR == toR || fromC == toC;
+                    if (!diag && !line) return false;
+                    return pathClear(fromR, fromC, toR, toC);
+                case 'K': // King
+                    return Math.abs(toR - fromR) <= 1 && Math.abs(toC - fromC) <= 1;
+                default:
+                    return false;
+            }
+        }
+
         boolean isValidMove(int fromR, int fromC, int toR, int toC, char promotion) {
             char p = pieceAt(fromR, fromC);
             if (p == 0) return false;
             if (whiteToMove != Character.isUpperCase(p)) return false;
-            // Simple pseudo-legal: same square check and basic piece rules
             if (fromR == toR && fromC == toC) return false;
             char target = pieceAt(toR, toC);
             if (target != 0 && isWhite(toR, toC) == Character.isUpperCase(p)) return false;
-            return true;
+            // Pawn promotion required on last rank
+            char up = Character.toUpperCase(p);
+            if (up == 'P') {
+                if (whiteToMove && toR == 0 && promotion == 0) return false;
+                if (!whiteToMove && toR == 7 && promotion == 0) return false;
+            }
+            return pieceCanMove(fromR, fromC, toR, toC, promotion);
+        }
+
+        /** Is square (r,c) attacked by the given side? */
+        boolean isSquareAttackedBy(int r, int c, boolean byWhite) {
+            for (int pr = 0; pr < 8; pr++) {
+                for (int pc = 0; pc < 8; pc++) {
+                    char piece = pieceAt(pr, pc);
+                    if (piece == 0) continue;
+                    if (Character.isUpperCase(piece) != byWhite) continue;
+                    if (pieceCanAttack(pr, pc, r, c)) return true;
+                }
+            }
+            return false;
+        }
+
+        /** Can the piece at (fromR,fromC) attack (toR,toC)? (Same as move but for opponent's square.) */
+        boolean pieceCanAttack(int fromR, int fromC, int toR, int toC) {
+            char p = pieceAt(fromR, fromC);
+            if (p == 0) return false;
+            boolean white = Character.isUpperCase(p);
+            switch (Character.toUpperCase(p)) {
+                case 'P':
+                    int dir = white ? -1 : 1;
+                    return toR == fromR + dir && Math.abs(toC - fromC) == 1;
+                case 'N':
+                    int dr = Math.abs(toR - fromR);
+                    int dc = Math.abs(toC - fromC);
+                    return (dr == 2 && dc == 1) || (dr == 1 && dc == 2);
+                case 'B':
+                    if (Math.abs(toR - fromR) != Math.abs(toC - fromC)) return false;
+                    return pathClear(fromR, fromC, toR, toC);
+                case 'R':
+                    if (fromR != toR && fromC != toC) return false;
+                    return pathClear(fromR, fromC, toR, toC);
+                case 'Q':
+                    boolean diag = Math.abs(toR - fromR) == Math.abs(toC - fromC);
+                    boolean line = fromR == toR || fromC == toC;
+                    if (!diag && !line) return false;
+                    return pathClear(fromR, fromC, toR, toC);
+                case 'K':
+                    return Math.abs(toR - fromR) <= 1 && Math.abs(toC - fromC) <= 1;
+                default:
+                    return false;
+            }
+        }
+
+        /** Find king position for the given side. Returns {r,c} or null if not found. */
+        int[] findKing(boolean white) {
+            char k = white ? 'K' : 'k';
+            for (int r = 0; r < 8; r++)
+                for (int c = 0; c < 8; c++)
+                    if (board[r][c] == k) return new int[]{r, c};
+            return null;
+        }
+
+        /** Is the given side's king in check? */
+        boolean isKingInCheck(boolean forWhite) {
+            int[] king = findKing(forWhite);
+            if (king == null) return false;
+            return isSquareAttackedBy(king[0], king[1], !forWhite);
+        }
+
+        /** After move was applied: side to move is the opponent. Is that side in check? */
+        boolean isCheckAfterMove() {
+            return isKingInCheck(whiteToMove);
+        }
+
+        boolean hasLegalMoves() {
+            for (int fromR = 0; fromR < 8; fromR++) {
+                for (int fromC = 0; fromC < 8; fromC++) {
+                    char p = pieceAt(fromR, fromC);
+                    if (p == 0 || Character.isUpperCase(p) != whiteToMove) continue;
+                    for (int toR = 0; toR < 8; toR++) {
+                        for (int toC = 0; toC < 8; toC++) {
+                            if (fromR == toR && fromC == toC) continue;
+                            char prom = (Character.toUpperCase(p) == 'P' && (toR == 0 || toR == 7)) ? 'Q' : 0;
+                            if (!isValidMove(fromR, fromC, toR, toC, prom)) continue;
+                            FenBoard copy = copy();
+                            copy.applyMove(fromR, fromC, toR, toC, prom);
+                            if (!copy.isKingInCheck(!copy.whiteToMove)) return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        boolean isCheckmateAfterMove() {
+            return isKingInCheck(whiteToMove) && !hasLegalMoves();
+        }
+
+        boolean isStalemateAfterMove() {
+            return !isKingInCheck(whiteToMove) && !hasLegalMoves();
         }
 
         String applyMove(int fromR, int fromC, int toR, int toC, char promotion) {
             char p = board[fromR][fromC];
+            boolean capture = pieceAt(toR, toC) != 0;
             board[fromR][fromC] = 0;
+            // En passant capture
+            if (Character.toUpperCase(p) == 'P' && epFile >= 0 && toC == epFile && !capture) {
+                board[whiteToMove ? toR + 1 : toR - 1][toC] = 0;
+                capture = true;
+            }
             if (promotion != 0 && (toR == 0 || toR == 7)) {
                 p = whiteToMove ? promotion : Character.toLowerCase(promotion);
             }
             board[toR][toC] = p;
+            // Update en passant target: double pawn push
+            epFile = -1;
+            if (Character.toUpperCase(p) == 'P' && Math.abs(toR - fromR) == 2) {
+                epFile = fromC;
+            }
             whiteToMove = !whiteToMove;
-            halfMove++;
-            if (!Character.isUpperCase(p) && p != 'p' && p != 'P') halfMove = 0;
+            if (Character.toUpperCase(p) == 'P' || capture) halfMove = 0;
+            else halfMove++;
             if (whiteToMove) fullMove++;
             return toFen();
-        }
-
-        boolean isCheckAfterMove() {
-            return false; // Simplified
-        }
-
-        boolean isCheckmateAfterMove() {
-            return false; // Simplified
         }
 
         String toFen() {

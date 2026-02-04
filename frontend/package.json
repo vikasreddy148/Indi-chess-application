@@ -14,14 +14,15 @@
   "dependencies": {
     "@stomp/stompjs": "^7.2.1",
     "chess.js": "^1.0.0-beta.8",
+    "framer-motion": "^12.31.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.11.0",
     "sockjs-client": "^1.6.1"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.0.1",
     "@tailwindcss/postcss": "^4.1.18",
+    "@testing-library/react": "^16.0.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
