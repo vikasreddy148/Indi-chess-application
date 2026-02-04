@@ -2,9 +2,13 @@ package com.indichess.match.service;
 
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Validates chess moves and applies them to FEN positions.
- * Supports basic moves; castling and en passant are handled in position update.
+ * Supports standard moves, castling, en passant, promotion.
+ * Detects Checkmate, Stalemate, Insufficient Material, and 50-Move Rule.
  */
 @Service
 public class MoveValidationService {
@@ -22,7 +26,7 @@ public class MoveValidationService {
         if (FILES.indexOf(uci.charAt(2)) < 0 || RANKS.indexOf(uci.charAt(3)) < 0) return false;
         if (uci.length() == 5) {
             char p = uci.charAt(4);
-            if (p != 'q' && p != 'r' && p != 'b' && p != 'n') return false;
+            return p == 'q' || p == 'r' || p == 'b' || p == 'n';
         }
         return true;
     }
@@ -38,7 +42,7 @@ public class MoveValidationService {
 
     /**
      * Validates that the move is legal for the current position.
-     * Checks turn and that the move can be applied; returns new FEN if valid.
+     * checks turn and that the move can be applied; returns new FEN if valid.
      */
     public ValidationResult validateAndApply(String fen, String moveUci) {
         if (fen == null || fen.isBlank()) fen = INITIAL_FEN;
@@ -66,23 +70,26 @@ public class MoveValidationService {
             boolean isCheck = board.isCheckAfterMove();
             boolean isCheckmate = board.isCheckmateAfterMove();
             boolean isStalemate = board.isStalemateAfterMove();
-            return ValidationResult.valid(newFen, isCheck, isCheckmate, isStalemate);
+            boolean isInsufficientMaterial = board.isInsufficientMaterial();
+            boolean isFiftyMoveRule = board.isFiftyMoveRule();
+            
+            return ValidationResult.valid(newFen, isCheck, isCheckmate, isStalemate, isInsufficientMaterial, isFiftyMoveRule);
         } catch (Exception e) {
             return ValidationResult.invalid("Invalid position or move: " + e.getMessage());
         }
     }
 
-    public record ValidationResult(boolean valid, String newFen, boolean isCheck, boolean isCheckmate, boolean isStalemate, String error) {
-        static ValidationResult valid(String newFen, boolean isCheck, boolean isCheckmate, boolean isStalemate) {
-            return new ValidationResult(true, newFen, isCheck, isCheckmate, isStalemate, null);
+    public record ValidationResult(boolean valid, String newFen, boolean isCheck, boolean isCheckmate, boolean isStalemate, boolean isInsufficientMaterial, boolean isFiftyMoveRule, String error) {
+        static ValidationResult valid(String newFen, boolean isCheck, boolean isCheckmate, boolean isStalemate, boolean isInsufficientMaterial, boolean isFiftyMoveRule) {
+            return new ValidationResult(true, newFen, isCheck, isCheckmate, isStalemate, isInsufficientMaterial, isFiftyMoveRule, null);
         }
         static ValidationResult invalid(String error) {
-            return new ValidationResult(false, null, false, false, false, error);
+            return new ValidationResult(false, null, false, false, false, false, false, error);
         }
     }
 
     /**
-     * FEN board with full chess rules: piece movement, check, checkmate, stalemate.
+     * FEN board with full chess rules: piece movement, check, castling, en passant, standard draws.
      */
     private static class FenBoard {
         private final char[][] board = new char[8][8];
@@ -136,7 +143,7 @@ public class MoveValidationService {
             return p != 0 && Character.isUpperCase(p);
         }
 
-        /** Path clear between (fromR,fromC) and (toR,toC) exclusive; assumes straight or diagonal. */
+        /** Path clear between (fromR,fromC) and (toR,toC) exclusive. */
         boolean pathClear(int fromR, int fromC, int toR, int toC) {
             int dr = Integer.compare(toR - fromR, 0);
             int dc = Integer.compare(toC - fromC, 0);
@@ -150,7 +157,39 @@ public class MoveValidationService {
             return true;
         }
 
-        /** Pseudo-legal: piece can move from->to by piece rules; does not check same color or path for capture. */
+        /** Checks if castling move is valid (rights, path clear, no checks). */
+        boolean isValidCastling(int fromR, int fromC, int toR, int toC) {
+            char p = pieceAt(fromR, fromC);
+            if (Character.toUpperCase(p) != 'K') return false;
+            boolean white = Character.isUpperCase(p);
+            
+            // Check castling rights
+            if (white) {
+                if (fromR != 7 || fromC != 4) return false;
+                if (toC == 6) { // Kingside
+                    if (!castling.contains("K")) return false;
+                    if (!pathClear(7, 4, 7, 7)) return false;
+                    if (isSquareAttackedBy(7, 4, false) || isSquareAttackedBy(7, 5, false) || isSquareAttackedBy(7, 6, false)) return false;
+                } else if (toC == 2) { // Queenside
+                    if (!castling.contains("Q")) return false;
+                    if (!pathClear(7, 4, 7, 0)) return false;
+                    if (isSquareAttackedBy(7, 4, false) || isSquareAttackedBy(7, 3, false) || isSquareAttackedBy(7, 2, false)) return false;
+                } else return false;
+            } else {
+                if (fromR != 0 || fromC != 4) return false;
+                if (toC == 6) { // Kingside
+                    if (!castling.contains("k")) return false;
+                    if (!pathClear(0, 4, 0, 7)) return false;
+                    if (isSquareAttackedBy(0, 4, true) || isSquareAttackedBy(0, 5, true) || isSquareAttackedBy(0, 6, true)) return false;
+                } else if (toC == 2) { // Queenside
+                    if (!castling.contains("q")) return false;
+                    if (!pathClear(0, 4, 0, 0)) return false;
+                    if (isSquareAttackedBy(0, 4, true) || isSquareAttackedBy(0, 3, true) || isSquareAttackedBy(0, 2, true)) return false;
+                } else return false;
+            }
+            return true;
+        }
+
         boolean pieceCanMove(int fromR, int fromC, int toR, int toC, char promotion) {
             char p = pieceAt(fromR, fromC);
             if (p == 0) return false;
@@ -196,7 +235,12 @@ public class MoveValidationService {
                     if (!diag && !line) return false;
                     return pathClear(fromR, fromC, toR, toC);
                 case 'K': // King
-                    return Math.abs(toR - fromR) <= 1 && Math.abs(toC - fromC) <= 1;
+                    if (Math.abs(toR - fromR) <= 1 && Math.abs(toC - fromC) <= 1) return true;
+                    // Castling
+                    if (Math.abs(toC - fromC) == 2 && fromR == toR) {
+                        return isValidCastling(fromR, fromC, toR, toC);
+                    }
+                    return false;
                 default:
                     return false;
             }
@@ -209,7 +253,8 @@ public class MoveValidationService {
             if (fromR == toR && fromC == toC) return false;
             char target = pieceAt(toR, toC);
             if (target != 0 && isWhite(toR, toC) == Character.isUpperCase(p)) return false;
-            // Pawn promotion required on last rank
+            
+            // Pawn promotion check
             char up = Character.toUpperCase(p);
             if (up == 'P') {
                 if (whiteToMove && toR == 0 && promotion == 0) return false;
@@ -218,20 +263,19 @@ public class MoveValidationService {
             return pieceCanMove(fromR, fromC, toR, toC, promotion);
         }
 
-        /** Is square (r,c) attacked by the given side? */
         boolean isSquareAttackedBy(int r, int c, boolean byWhite) {
             for (int pr = 0; pr < 8; pr++) {
                 for (int pc = 0; pc < 8; pc++) {
                     char piece = pieceAt(pr, pc);
                     if (piece == 0) continue;
                     if (Character.isUpperCase(piece) != byWhite) continue;
+                    // Use basic attacks, exclude castling logic for king attacks
                     if (pieceCanAttack(pr, pc, r, c)) return true;
                 }
             }
             return false;
         }
 
-        /** Can the piece at (fromR,fromC) attack (toR,toC)? (Same as move but for opponent's square.) */
         boolean pieceCanAttack(int fromR, int fromC, int toR, int toC) {
             char p = pieceAt(fromR, fromC);
             if (p == 0) return false;
@@ -262,7 +306,6 @@ public class MoveValidationService {
             }
         }
 
-        /** Find king position for the given side. Returns {r,c} or null if not found. */
         int[] findKing(boolean white) {
             char k = white ? 'K' : 'k';
             for (int r = 0; r < 8; r++)
@@ -271,14 +314,12 @@ public class MoveValidationService {
             return null;
         }
 
-        /** Is the given side's king in check? */
         boolean isKingInCheck(boolean forWhite) {
             int[] king = findKing(forWhite);
             if (king == null) return false;
             return isSquareAttackedBy(king[0], king[1], !forWhite);
         }
 
-        /** After move was applied: side to move is the opponent. Is that side in check? */
         boolean isCheckAfterMove() {
             return isKingInCheck(whiteToMove);
         }
@@ -311,28 +352,95 @@ public class MoveValidationService {
             return !isKingInCheck(whiteToMove) && !hasLegalMoves();
         }
 
+        boolean isFiftyMoveRule() {
+            return halfMove >= 100;
+        }
+
+        boolean isInsufficientMaterial() {
+            Map<Character, Integer> pieces = new HashMap<>();
+            for (int r = 0; r < 8; r++) {
+                for (int c = 0; c < 8; c++) {
+                    char p = board[r][c];
+                    if (p != 0) {
+                        pieces.put(p, pieces.getOrDefault(p, 0) + 1);
+                    }
+                }
+            }
+            // K vs K
+            if (pieces.size() == 2 && pieces.containsKey('K') && pieces.containsKey('k')) return true;
+            
+            // K+N vs K or K+B vs K
+            if (pieces.size() == 3) {
+                if (pieces.containsKey('N') || pieces.containsKey('B') || pieces.containsKey('n') || pieces.containsKey('b')) return true;
+            }
+            // K+N vs K+N etc not automatically drawn by FIDE (can have helpmate), but often treated as draw by engines.
+            // Strict FIDE: K+B vs K+B (same color bishops) is draw? No, actually not forced.
+            // Simplified insufficient: K, KN, KB vs K, KN, KB involved.
+            // Let's stick to minimal: K vs K, KN vs K, KB vs K.
+            return false;
+        }
+
         String applyMove(int fromR, int fromC, int toR, int toC, char promotion) {
             char p = board[fromR][fromC];
-            boolean capture = pieceAt(toR, toC) != 0;
+            char captured = board[toR][toC];
             board[fromR][fromC] = 0;
-            // En passant capture
-            if (Character.toUpperCase(p) == 'P' && epFile >= 0 && toC == epFile && !capture) {
-                board[whiteToMove ? toR + 1 : toR - 1][toC] = 0;
-                capture = true;
+            
+            // Castling Move Rook
+            if (Character.toUpperCase(p) == 'K' && Math.abs(toC - fromC) == 2) {
+                if (toC == 6) { // Kingside
+                    board[toR][5] = board[toR][7];
+                    board[toR][7] = 0;
+                } else if (toC == 2) { // Queenside
+                    board[toR][3] = board[toR][0];
+                    board[toR][0] = 0;
+                }
             }
+
+            // En passant capture
+            if (Character.toUpperCase(p) == 'P' && epFile >= 0 && toC == epFile && captured == 0) {
+                board[whiteToMove ? toR + 1 : toR - 1][toC] = 0; // Remove pawn
+                captured = 'P'; // Mark as capture for halfmove
+            }
+
             if (promotion != 0 && (toR == 0 || toR == 7)) {
                 p = whiteToMove ? promotion : Character.toLowerCase(promotion);
             }
             board[toR][toC] = p;
-            // Update en passant target: double pawn push
+
+            // Update castling rights
+            if (whiteToMove) {
+                if (p == 'K') castling = castling.replace("K", "").replace("Q", "");
+                if (p == 'R') {
+                    if (fromR == 7 && fromC == 0) castling = castling.replace("Q", "");
+                    if (fromR == 7 && fromC == 7) castling = castling.replace("K", "");
+                }
+            } else {
+                if (p == 'k') castling = castling.replace("k", "").replace("q", "");
+                if (p == 'r') {
+                    if (fromR == 0 && fromC == 0) castling = castling.replace("q", "");
+                    if (fromR == 0 && fromC == 7) castling = castling.replace("k", "");
+                }
+            }
+            // If rook is captured, remove rights
+            if (captured != 0) {
+                 if (toR == 0 && toC == 0) castling = castling.replace("q", "");
+                 if (toR == 0 && toC == 7) castling = castling.replace("k", "");
+                 if (toR == 7 && toC == 0) castling = castling.replace("Q", "");
+                 if (toR == 7 && toC == 7) castling = castling.replace("K", "");
+            }
+            if (castling.isEmpty()) castling = "-";
+
+            // Update en passant target
             epFile = -1;
             if (Character.toUpperCase(p) == 'P' && Math.abs(toR - fromR) == 2) {
                 epFile = fromC;
             }
+
             whiteToMove = !whiteToMove;
-            if (Character.toUpperCase(p) == 'P' || capture) halfMove = 0;
+            if (Character.toUpperCase(p) == 'P' || captured != 0) halfMove = 0;
             else halfMove++;
-            if (whiteToMove) fullMove++;
+            if (whiteToMove) fullMove++; // After black moves, fullmove increments
+            
             return toFen();
         }
 

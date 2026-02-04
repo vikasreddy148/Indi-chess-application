@@ -101,7 +101,7 @@ public class GameService {
             match.setStatus(whiteToMove ? MatchStatus.PLAYER1_WON : MatchStatus.PLAYER2_WON);
             match.setFinishedAt(LocalDateTime.now());
             ratingService.updateRatingsAfterMatch(match);
-        } else if (result.isStalemate()) {
+        } else if (result.isStalemate() || result.isInsufficientMaterial() || result.isFiftyMoveRule()) {
             match.setStatus(MatchStatus.DRAW);
             match.setFinishedAt(LocalDateTime.now());
             ratingService.updateRatingsAfterMatch(match);

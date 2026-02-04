@@ -5,12 +5,14 @@ import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
 import { ChessBoard } from '../components/ChessBoard.jsx'
 import { GameOverModal } from '../components/GameOverModal.jsx'
+import { PromotionModal } from '../components/PromotionModal.jsx'
 
 export default function LocalGamePage() {
   const [game, setGame] = useState(() => new Chess())
   const [selectedSquare, setSelectedSquare] = useState(null)
   const [lastMove, setLastMove] = useState(null)
   const [gameOver, setGameOver] = useState(null)
+  const [promotionMove, setPromotionMove] = useState(null)
 
   const turn = game.turn() === 'w' ? 'White' : 'Black'
   const legalSquares = selectedSquare
@@ -38,7 +40,7 @@ export default function LocalGamePage() {
   }
 
   const handleSquareClick = (sq) => {
-    if (gameOver) return
+    if (gameOver || promotionMove) return
 
     const piece = game.get(sq)
     if (piece && piece.color === game.turn()) {
@@ -46,18 +48,32 @@ export default function LocalGamePage() {
       return
     }
     if (selectedSquare && legalSquares.includes(sq)) {
-      const gameCopy = new Chess(game.fen())
-      const move = gameCopy.move({ from: selectedSquare, to: sq })
+      const moves = game.moves({ square: selectedSquare, verbose: true })
+      const move = moves.find((m) => m.to === sq)
       
-      if (move) {
-        setGame(gameCopy)
-        setLastMove({ from: move.from, to: move.to })
-        setSelectedSquare(null)
-        checkGameOver(gameCopy)
+      // Check for promotion
+      if (move && move.promotion) {
+        setPromotionMove({ from: selectedSquare, to: sq })
+        return
       }
+
+      makeMove({ from: selectedSquare, to: sq })
       return
     }
     setSelectedSquare(null)
+  }
+
+  const makeMove = (moveObj) => {
+    const gameCopy = new Chess(game.fen())
+    const result = gameCopy.move(moveObj)
+    
+    if (result) {
+      setGame(gameCopy)
+      setLastMove({ from: result.from, to: result.to })
+      setSelectedSquare(null)
+      setPromotionMove(null)
+      checkGameOver(gameCopy)
+    }
   }
 
   const resetGame = () => {
@@ -65,6 +81,7 @@ export default function LocalGamePage() {
     setSelectedSquare(null)
     setLastMove(null)
     setGameOver(null)
+    setPromotionMove(null)
   }
 
   return (
@@ -86,6 +103,12 @@ export default function LocalGamePage() {
             legalMoves={legalSquares}
             onSquareClick={handleSquareClick}
           />
+          {promotionMove && (
+            <PromotionModal
+              color={game.turn()}
+              onSelect={(p) => makeMove({ ...promotionMove, promotion: p })}
+            />
+          )}
           {gameOver && (
             <GameOverModal
               winner={gameOver.winner}
@@ -122,3 +145,4 @@ export default function LocalGamePage() {
     </div>
   )
 }
+
