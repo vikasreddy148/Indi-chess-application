@@ -12,16 +12,20 @@ services:
       - SPRING_DATASOURCE_PASSWORD=root
       - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
       - JWT_TTL_SECONDS=18000
+      - OAUTH2_REDIRECT_URI=http://localhost:3000/login/oauth2/code/google
+      - OAUTH2_FRONTEND_REDIRECT=http://localhost:3000/oauth/callback
     depends_on:
-      - user-db
+      user-db:
+        condition: service_healthy
     restart: on-failure
     networks:
       - indichess-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   match-service:
     build:
@@ -37,18 +41,21 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - USER_SERVICE_URL=http://user-service:8081
-      - JWT_SECRET=8fa3ef8f-befe-49e0-be7e-fc2af06a2597-rttgghjggh
+      - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
     depends_on:
-      - match-db
-      - redis
+      match-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: on-failure
     networks:
       - indichess-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   api-gateway:
     build:
@@ -60,20 +67,21 @@ services:
     environment:
       - USER_SERVICE_URL=http://user-service:8081
       - MATCH_SERVICE_URL=http://match-service:8082
-      - FRONTEND_URL=http://localhost:3000
-      - FRONTEND_URL_DEV=http://localhost:5173
       - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
     depends_on:
-      - user-service
-      - match-service
+      user-service:
+        condition: service_healthy
+      match-service:
+        condition: service_healthy
     restart: on-failure
     networks:
       - indichess-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
     build: ./frontend
@@ -81,7 +89,8 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
     restart: on-failure
     networks:
       - indichess-network
