@@ -123,8 +123,6 @@ temp/
 secrets/
 *.pem
 *.key
-plans/
-QUICK_START.md
 backend/user-service/src/main/resources/application.yml
 backend/match-service/src/main/resources/application.yml
 backend/api-gateway/src/main/resources/application.yml

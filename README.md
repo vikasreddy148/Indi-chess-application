@@ -1,91 +1,33 @@
-# IndiChess – Microservices Chess Application
+# IndiChess – Online Chess Application
 
-A full-stack, real-time multiplayer chess platform built with a microservices architecture. Users can register, log in (including Google OAuth), find opponents via matchmaking, play games with live moves over WebSocket, and track ratings by game type.
+IndiChess is a full-stack online chess platform built with a **microservices architecture**. Users can register, play real-time online games with matchmaking, play local two-player games, and manage profiles and ratings. The backend is Java/Spring Boot with MySQL and Redis; the frontend is React with Vite.
 
 ---
 
 ## Table of Contents
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Technology Stack](#technology-stack)
+- [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [API Overview](#api-overview)
-- [Frontend](#frontend)
-- [Testing](#testing)
-- [Building for Production](#building-for-production)
+- [Features](#features)
+- [API Endpoints](#api-endpoints)
+- [WebSocket API](#websocket-api)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
 - [Kubernetes Deployment](#kubernetes-deployment)
-- [Ports Summary](#ports-summary)
-- [Troubleshooting](#troubleshooting)
-- [License & Author](#license--author)
+- [Development](#development)
+- [Testing](#testing)
 
 ---
 
-## Features
+## Tech Stack
 
-- **Authentication & users**
-  - Register, login, logout, token refresh
-  - Google OAuth 2.0 (Login with Google)
-  - JWT-based auth; protected profile and change-password
-- **Matchmaking**
-  - Join/leave queue by game type (Classical, Rapid, Blitz, Bullet)
-  - Automatic pairing; optional WebSocket notifications when a match is found
-- **Gameplay**
-  - Create match, make moves (UCI), move history
-  - Resign, offer/accept/decline draw
-  - Real-time updates via WebSocket (STOMP); REST fallback for moves/resign/draw
-- **Ratings**
-  - Per-game-type ratings (ELO-style) with dedicated endpoints
-- **Infrastructure**
-  - API Gateway (routing, JWT validation, CORS)
-  - Separate MySQL DBs per service; Redis for match-service (e.g. queue/session)
-  - Docker Compose for local full stack; Kubernetes manifests for deployment
-
----
-
-## Architecture
-
-The application uses a microservices layout with a single entry point (API Gateway).
-
-| Service         | Port | Responsibility |
-|----------------|------|----------------|
-| **API Gateway** | 8080 | Request routing, JWT validation, CORS, proxy to user/match services |
-| **User Service** | 8081 | Auth (JWT, OAuth2), user management, profile, sessions |
-| **Match Service** | 8082 | Matches, moves, matchmaking, ratings, WebSocket game updates |
-| **Config Service** | 8888 | Optional centralized config (Spring Cloud Config) |
-| **Frontend**   | 3000 (Docker) / 5173 (Vite) | React SPA; talks to API Gateway |
-
-- **Databases:** User Service → MySQL (`user_service_db`); Match Service → MySQL (`match_service_db`).
-- **Redis:** Used by Match Service (e.g. matchmaking queue / session state).
-- All HTTP and WebSocket traffic from the frontend goes through the API Gateway; the gateway forwards to User Service or Match Service by path.
-
----
-
-## Technology Stack
-
-### Backend
-
-- **Java 17**, Maven
-- **Spring Boot 3.3.2**, Spring Cloud 2023.0.3
-- **User Service:** Spring Web, Data JPA, Security, Validation, OAuth2 Client, Actuator; JWT (jjwt); Flyway
-- **Match Service:** Spring Web, Data JPA, WebSocket (STOMP), Validation, OpenFeign, Data Redis; Flyway
-- **API Gateway:** Spring Cloud Gateway, Actuator, JWT validation
-- **Config Service:** Spring Cloud Config Server (optional)
-- **Data:** MySQL 8.0, Redis 7
-
-### Frontend
-
-- **React 19**, Vite 6, React Router 7
-- **Tailwind CSS 4**, Framer Motion
-- **chess.js** (game logic), **SockJS + StompJS** (WebSocket)
-
-### Infrastructure
-
-- Docker & Docker Compose
-- Kubernetes (manifests in `k8s/`)
+| Layer | Technologies |
+|-------|--------------|
+| **Frontend** | React 19, Vite 6, React Router 7, Tailwind CSS 4, Framer Motion, chess.js, STOMP/SockJS |
+| **Backend** | Java 17, Spring Boot 3.3, Spring Cloud Gateway, Spring Security, JWT, Spring WebSocket (STOMP) |
+| **Databases** | MySQL 8 (user-service, match-service), Redis 7 (matchmaking queue) |
+| **Infrastructure** | Docker, Docker Compose, Kubernetes (optional), Nginx |
+| **Build** | Maven (backend), npm (frontend) |
 
 ---
 
@@ -93,243 +35,371 @@ The application uses a microservices layout with a single entry point (API Gatew
 
 ```
 Indi-chess-application/
-├── backend/                    # Backend microservices (Maven multi-module)
-│   ├── api-gateway/            # Spring Cloud Gateway, JWT filter, routing
-│   ├── config-service/        # Optional Spring Cloud Config server
-│   ├── match-service/         # Matches, moves, matchmaking, ratings, WebSocket
-│   └── user-service/         # Auth, users, profile, OAuth2
-├── frontend/                  # React + Vite SPA
-│   ├── src/
-│   │   ├── api/               # API clients (auth, users, match, ratings)
-│   │   ├── components/        # ChessBoard, modals, UI components
-│   │   ├── context/           # AuthContext
-│   │   ├── pages/             # Landing, Login/Register, Home, Game, Local Game
-│   │   └── ws/                # STOMP WebSocket client
-│   ├── Dockerfile
-│   └── nginx.conf
-├── k8s/                       # Kubernetes manifests
-│   ├── backend/               # api-gateway, match-service, user-service
-│   ├── frontend/
-│   └── infrastructure/        # MySQL, Redis
-├── docker-compose.yml
-├── pom.xml                    # Root POM (backend parent)
-└── README.md
+├── pom.xml                          # Root Maven POM (includes backend module)
+├── docker-compose.yml               # Full stack: services + DBs + Redis + frontend
+├── README.md                        # This file
+│
+├── backend/                         # Java microservices (Maven multi-module)
+│   ├── pom.xml                     # Backend parent POM (Spring Boot 3.3, Java 17)
+│   ├── user-service/               # Auth, users, profile, OAuth2
+│   │   ├── Dockerfile
+│   │   ├── pom.xml
+│   │   └── src/main/java/com/indichess/user/
+│   │       ├── UserServiceApplication.java
+│   │       ├── controller/         # AuthController, UserController
+│   │       ├── service/            # AuthService, JwtService, UserService
+│   │       ├── config/             # SecurityConfig, OAuth2SuccessHandler
+│   │       ├── dto/                # LoginRequest, RegisterRequest, UserResponse, etc.
+│   │       ├── model/              # User, Role, UserSession
+│   │       ├── repo/               # UserRepository, RoleRepository
+│   │       ├── filters/            # JwtAuthenticationFilter
+│   │       └── exception/          # GlobalExceptionHandler
+│   │   └── src/main/resources/
+│   │       ├── bootstrap.yml
+│   │       └── db/migration/       # Flyway: users, roles, sessions
+│   │
+│   ├── match-service/              # Matches, matchmaking, game moves, ratings
+│   │   ├── Dockerfile
+│   │   ├── pom.xml
+│   │   └── src/main/java/com/indichess/match/
+│   │       ├── MatchServiceApplication.java
+│   │       ├── controller/        # MatchController, MatchmakingController, GameController, RatingController
+│   │       ├── service/            # MatchService, GameService, MatchQueueService, RatingService
+│   │       ├── websocket/          # GameMessageController (STOMP)
+│   │       ├── config/             # WebSocketConfig, TimeControlConfig
+│   │       ├── client/             # UserServiceClient (HTTP)
+│   │       ├── dto/                # MatchResponse, MoveRequest, RatingResponse
+│   │       ├── model/              # Match, Move, Rating, MatchQueue, GameType
+│   │       └── repo/               # MatchRepository, MoveRepository, RatingRepository
+│   │   └── src/main/resources/
+│   │       ├── bootstrap.yml
+│   │       └── db/migration/       # matches, moves, ratings, match_queue, clocks
+│   │
+│   ├── api-gateway/                # Spring Cloud Gateway, JWT validation, routing
+│   │   ├── Dockerfile
+│   │   ├── pom.xml
+│   │   └── src/main/java/com/indichess/gateway/
+│   │       ├── ApiGatewayApplication.java
+│   │       ├── filter/             # JwtValidationFilter, RequestLoggingFilter
+│   │       └── exception/          # GlobalExceptionHandler
+│   │   └── src/main/resources/
+│   │       ├── bootstrap.yml
+│   │       └── application.yml     # Routes to user-service, match-service, CORS
+│   │
+│   └── config-service/             # Optional central config (Spring Cloud Config)
+│       ├── Dockerfile
+│       ├── pom.xml
+│       └── src/main/java/com/indichess/config/
+│           └── ConfigServiceApplication.java
+│
+├── frontend/                       # React SPA
+│   ├── package.json               # indichess-frontend, Vite, React 19, Tailwind
+│   ├── Dockerfile                 # Node build → nginx serve
+│   ├── nginx.conf                 # SPA + proxy /api, /ws-indichess, OAuth routes
+│   ├── index.html
+│   ├── vite.config.js             # Dev proxy to API and WebSocket
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx                 # Routes, ProtectedRoute, PublicOnlyRoute
+│       ├── index.css
+│       ├── api/                    # HTTP client and API modules
+│       │   ├── client.js          # apiRequest, getAuthHeaders, X-User-Id
+│       │   ├── auth.js            # login, register, logout, changePassword
+│       │   ├── users.js           # getProfile, updateProfile, getUserById
+│       │   ├── match.js           # matchmaking, getMatch, move, resign, draw
+│       │   └── ratings.js         # getMyRatings, getUserRatings
+│       ├── config/
+│       │   └── api.js             # getApiBase, getOAuthBase, getWsBase
+│       ├── context/
+│       │   └── AuthContext.jsx    # Auth state, login, logout, token, userId
+│       ├── components/
+│       │   ├── Badge.jsx
+│       │   ├── Button.jsx
+│       │   ├── Card.jsx
+│       │   ├── ChessBoard.jsx     # Board UI, drag/drop, highlights
+│       │   ├── GameOverModal.jsx
+│       │   ├── Input.jsx
+│       │   ├── Logo.jsx
+│       │   └── PromotionModal.jsx
+│       ├── lib/
+│       │   └── chessConstants.js
+│       ├── pages/
+│       │   ├── LandingPage.jsx
+│       │   ├── LoginRegisterPage.jsx
+│       │   ├── OAuthCallbackPage.jsx
+│       │   ├── HomePage.jsx       # Matchmaking, profile, game list, ratings
+│       │   ├── GamePage.jsx       # Online game, WebSocket, clocks, draw/resign
+│       │   └── LocalGamePage.jsx  # Local two-player (no backend)
+│       └── ws/
+│           └── stompClient.js     # STOMP over SockJS, matchmaking + game topics
+│
+└── k8s/                           # Kubernetes manifests (optional)
+    ├── 01-namespace.yaml
+    ├── 02-secrets.yaml
+    ├── 03-configmap.yaml
+    ├── 04-user-db.yaml
+    ├── 05-match-db.yaml
+    ├── 06-redis.yaml
+    ├── 07-config-service.yaml
+    ├── 08-user-service.yaml
+    ├── 09-match-service.yaml
+    ├── 10-api-gateway.yaml
+    ├── 11-frontend.yaml
+    └── 12-ingress.yaml             # /api → gateway, / → frontend
 ```
 
 ---
 
-## Prerequisites
+## Features
 
-- **Java 17**, **Maven 3.8+**
-- **Node.js 18+** (e.g. 20) for frontend
-- **Docker & Docker Compose** (for full stack or DBs/Redis only)
-- **MySQL 8.0+** and **Redis** if running backend locally without Docker
+### Authentication & Users
 
----
+- **Register** – Username, email, password, optional country.
+- **Login** – Username or email + password; returns JWT and user info.
+- **Logout** – Invalidates session (token blacklist in user-service).
+- **Refresh token** – `POST /api/auth/refresh` with Bearer token.
+- **Change password** – Authenticated users can change password.
+- **OAuth2 (Google)** – Login/register via Google; redirect to `/oauth/callback` with token.
+- **Profile** – Get/update profile (username, email, country); fetch user by ID for opponent info.
 
-## Quick Start
+### Matchmaking & Game Types
 
-### Option A: Run everything with Docker
+- **Queue by game type** – Join matchmaking for **Rapid (10+0)**, **Blitz (3+2)**, or **Classical (30+0)**.
+- **Real-time matching** – WebSocket topic `/topic/matchmaking/{userId}`; when matched, receive match object and redirect to game.
+- **Leave queue** – Leave matchmaking before a match is found.
 
-```bash
-git clone <repository-url>
-cd Indi-chess-application
-docker-compose up -d
-```
+### Online Gameplay
 
-Wait ~30 seconds for services to start.
+- **Real-time moves** – Moves, resign, and draw actions sent over WebSocket to `/app/game/{matchId}/*`; state broadcast on `/topic/game/{matchId}`.
+- **Chess rules** – Move validation (including pawn promotion) on server; board state (FEN) and clocks stored in match-service.
+- **Clocks** – Per-game-type time controls; server maintains remaining time (with optional increment).
+- **Resign** – Player can resign to end the game.
+- **Draw** – Offer draw; opponent can accept or decline via WebSocket/API.
 
-- **Frontend:** http://localhost:3000  
-- **API Gateway:** http://localhost:8080  
+### Ratings
 
-### Option B: Run only databases and Redis (backend/frontend on host)
+- **Per game type** – Separate ratings for RAPID, BLITZ, CLASSICAL (default 1200).
+- **My ratings** – `GET /api/ratings/me` (uses `X-User-Id` from gateway).
+- **User ratings** – `GET /api/ratings/user/{userId}` for profile/opponent display.
 
-```bash
-docker-compose up -d user-db match-db redis
-```
+### Local Game
 
-Then start **User Service** (8081), **Match Service** (8082), **API Gateway** (8080), and **Frontend** (see below).
+- **Two-player on one device** – `/local`: no login required; uses `chess.js` only; checkmate, stalemate, draw detection; promotion modal.
 
-### Run backend locally (separate terminals)
+### UI/UX
 
-```bash
-# Terminal 1 – User Service
-cd backend/user-service && mvn spring-boot:run
-
-# Terminal 2 – Match Service
-cd backend/match-service && mvn spring-boot:run
-
-# Terminal 3 – API Gateway
-cd backend/api-gateway && mvn spring-boot:run
-```
-
-Use the same DB URLs as in each service’s config (Docker: `localhost:3307` / `3308` for user/match DBs if port-mapped; Redis: `localhost:6379`).
-
-### Run frontend locally
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open **http://localhost:5173**. Set `VITE_API_BASE=http://localhost:8080` in `.env` so the app uses the API Gateway (WebSocket will use the same origin when proxied or same host).
+- **Landing** – Hero, feature highlights, login/register links.
+- **Home** – Game type selector, “Find match”, profile section, recent games list, ratings display.
+- **Game page** – Chess board, move history, clocks, resign/draw buttons, game-over modal.
+- **Responsive** – Tailwind-based layout; works on desktop and mobile.
 
 ---
 
-## Configuration
+## API Endpoints
 
-### Environment variables (backend)
+All HTTP APIs are exposed via the **API Gateway** at port **8080**. The gateway routes to user-service (8081) and match-service (8082) and adds JWT validation (except for auth and OAuth paths).
 
-| Variable | Service | Description |
-|----------|---------|-------------|
-| `SPRING_DATASOURCE_URL` | user-service, match-service | JDBC URL for MySQL |
-| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | user-service, match-service | DB credentials |
-| `JWT_SECRET` | user-service, match-service, api-gateway | Must be the same across all three |
-| `JWT_TTL_SECONDS` | user-service | JWT expiration (e.g. 18000) |
-| `USER_SERVICE_URL` | api-gateway, match-service | e.g. `http://user-service:8081` |
-| `MATCH_SERVICE_URL` | api-gateway | e.g. `http://match-service:8082` |
-| `REDIS_HOST` / `REDIS_PORT` | match-service | Redis connection |
-| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | user-service | For Google OAuth (redirect URI: `http://localhost:8080/login/oauth2/code/google` for local) |
-| `FRONTEND_URL` / `FRONTEND_URL_DEV` | api-gateway | Allowed frontend origins if needed |
+**Base URL:** `http://localhost:8080` (or your gateway host)  
+**Auth:** `Authorization: Bearer <token>`  
+**User context:** `X-User-Id: <userId>` (set by gateway from JWT; required for matchmaking, moves, resign, draw, ratings/me)
 
-### Gateway routes
+### Auth (`/api/auth`) – User Service
 
-- `/api/auth/**`, `/api/users/**`, `/oauth2/**`, `/login/oauth2/**` → User Service  
-- `/api/matches/**`, `/api/matchmaking/**`, `/api/ratings/**`, `/ws-indichess/**` → Match Service  
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/auth/register` | No | Register: `{ username, email, password, country? }` → `AuthResponse` |
+| `POST` | `/api/auth/login` | No | Login: `{ usernameOrEmail, password }` → `AuthResponse` |
+| `POST` | `/api/auth/logout` | Bearer | Logout (invalidates token) |
+| `POST` | `/api/auth/refresh` | Bearer | Refresh JWT → `AuthResponse` |
+| `POST` | `/api/auth/change-password` | Bearer | Body: `{ currentPassword, newPassword }` |
 
-Protected routes require header: `Authorization: Bearer <JWT>`. Match Service endpoints that need the current user also expect `X-User-Id: <userId>` (gateway or client can set it from JWT).
+### Users (`/api/users`) – User Service
 
----
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/users/profile` | Bearer | Current user profile → `UserResponse` |
+| `PUT` | `/api/users/profile` | Bearer | Update profile (e.g. username, email, country) |
+| `GET` | `/api/users/{id}` | Bearer | Get user by ID → `UserResponse` |
 
-## API Overview
+### Matchmaking (`/api/matchmaking`) – Match Service
 
-Use the **API Gateway** base URL (e.g. `http://localhost:8080`) for all HTTP calls. Replace `YOUR_TOKEN` with the JWT from login/register.
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/matchmaking/join?gameType=RAPID\|BLITZ\|CLASSICAL` | Bearer + X-User-Id | Join queue; 201 + Match when matched, 200 + `{ status: "waiting" }` otherwise |
+| `POST` | `/api/matchmaking/leave` | Bearer + X-User-Id | Leave queue |
 
-### Auth (User Service)
+### Matches (`/api/matches`) – Match Service
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/register` | Register (username, email, password, country) |
-| POST | `/api/auth/login` | Login (usernameOrEmail, password) |
-| POST | `/api/auth/logout` | Logout (Bearer token) |
-| POST | `/api/auth/refresh` | Refresh JWT |
-| POST | `/api/auth/change-password` | Change password (authenticated) |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/matches/create` | Bearer + X-User-Id | Create match: `{ player2Id, gameType }` (optional; matchmaking is primary) |
+| `GET` | `/api/matches/{id}` | Bearer | Get match by ID → `MatchResponse` |
+| `GET` | `/api/matches/user/{userId}` | Bearer | List matches for user → `MatchResponse[]` |
 
-### Users (User Service)
+### Game Actions (`/api/matches`) – Match Service
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/users/profile` | Current user profile (Bearer) |
-| PUT | `/api/users/profile` | Update profile (Bearer) |
-| GET | `/api/users/{id}` | Get user by ID |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/matches/{id}/move` | Bearer + X-User-Id | Make move: `{ moveUci }` → `MatchResponse` |
+| `POST` | `/api/matches/{id}/resign` | Bearer + X-User-Id | Resign → `MatchResponse` |
+| `POST` | `/api/matches/{id}/draw` | Bearer + X-User-Id | Offer draw → `MatchResponse` |
+| `POST` | `/api/matches/{id}/draw/accept` | Bearer + X-User-Id | Accept draw → `MatchResponse` |
+| `POST` | `/api/matches/{id}/draw/decline` | Bearer + X-User-Id | Decline draw → `MatchResponse` |
+| `GET` | `/api/matches/{id}/history` | Bearer | Move history → `MoveResponse[]` |
 
-### Matches & gameplay (Match Service)
+### Ratings (`/api/ratings`) – Match Service
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/matches/create` | Create match (player2Id, gameType); requires `X-User-Id` |
-| GET | `/api/matches/{id}` | Get match |
-| GET | `/api/matches/user/{userId}` | List matches for user |
-| POST | `/api/matches/{id}/move` | Make move (moveUci, etc.); `X-User-Id` |
-| GET | `/api/matches/{id}/history` | Move history |
-| POST | `/api/matches/{id}/resign` | Resign; `X-User-Id` |
-| POST | `/api/matches/{id}/draw` | Offer draw; `X-User-Id` |
-| POST | `/api/matches/{id}/draw/accept` | Accept draw; `X-User-Id` |
-| POST | `/api/matches/{id}/draw/decline` | Decline draw; `X-User-Id` |
-
-### Matchmaking (Match Service)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/matchmaking/join?gameType=CLASSICAL\|RAPID\|BLITZ\|BULLET` | Join queue; `X-User-Id` |
-| POST | `/api/matchmaking/leave` | Leave queue; `X-User-Id` |
-
-### Ratings (Match Service)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/ratings/me` | Current user’s ratings by game type; `X-User-Id` |
-| GET | `/api/ratings/user/{userId}` | Ratings for a user |
-
-### Health
-
-- Gateway: `GET http://localhost:8080/actuator/health`
-- User Service: `GET http://localhost:8081/actuator/health`
-- Match Service: `GET http://localhost:8082/actuator/health`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/ratings/me` | Bearer + X-User-Id | Current user’s ratings by game type |
+| `GET` | `/api/ratings/user/{userId}` | Bearer | Ratings for user |
 
 ---
 
-## Frontend
+## WebSocket API
 
-- **Landing:** Get Started, Login, Register, Google OAuth.
-- **Home (after login):** Find match (matchmaking), edit profile (country, profile picture URL), list your games, log out.
-- **Game:** Chess board, move input, resign, offer/accept/decline draw. Uses WebSocket when connected (shows “Live”); falls back to REST for moves/resign/draw if WebSocket is down. Token refresh on 401 (if within a short window) or logout.
-- **Local game:** Play locally (no backend).
+**URL:** Same origin as API (e.g. `http://localhost:8080/ws-indichess` or via frontend proxy).  
+**Protocol:** SockJS + STOMP.  
+**Auth:** Query param `token=<JWT>` when connecting (handled by frontend).
+
+### Connection
+
+- Connect to `/ws-indichess` with `token` in query string; gateway/match-service validate JWT and set user context.
+
+### Subscriptions (receive)
+
+| Topic | Description |
+|-------|-------------|
+| `/topic/matchmaking/{userId}` | When matched, receive full match object; redirect to `/game/:gameId`. |
+| `/topic/game/{matchId}` | Game updates: `MOVE_MADE`, `RESIGNED`, `DRAW`, `DRAW_OFFERED`, `DRAW_DECLINED`, `ERROR`. |
+
+### Sends (client → server)
+
+| Destination | Body | Description |
+|-------------|------|-------------|
+| `/app/game/{matchId}/move` | `{ "moveUci": "e2e4" }` | Play move (UCI). |
+| `/app/game/{matchId}/resign` | `{}` | Resign. |
+| `/app/game/{matchId}/draw` | `{}` | Offer draw. |
+| `/app/game/{matchId}/draw/accept` | `{}` | Accept draw. |
+| `/app/game/{matchId}/draw/decline` | `{}` | Decline draw. |
 
 ---
 
-## Testing
+## Getting Started
 
-```bash
-# Backend (all services)
-cd backend
-mvn test
+### Prerequisites
 
-# Frontend
-cd frontend
-npm test
-```
+- **Docker & Docker Compose** (recommended), or
+- **Java 17**, **Maven 3.8+**, **Node 20+**, **MySQL 8**, **Redis 7** for local runs.
+
+### Run with Docker Compose
+
+1. Clone the repo and go to the project root:
+   ```bash
+   cd Indi-chess-application
+   ```
+
+2. Start all services (builds images if needed):
+   ```bash
+   docker compose up -d
+   ```
+
+3. Wait for health checks (gateway, user-service, match-service). Then open:
+   - **Frontend:** http://localhost:3000  
+   - **API Gateway:** http://localhost:8080  
+
+4. Optional: run only backend + DBs and run frontend locally:
+   ```bash
+   docker compose up -d user-db match-db redis user-service match-service config-service api-gateway
+   cd frontend && npm ci && npm run dev
+   ```
+   Frontend dev server: http://localhost:5173 (proxies `/api` and `/ws-indichess` to 8080).
+
+### Run backend only (no Docker)
+
+1. Start MySQL (user DB on 3306 or 3307), MySQL (match DB), and Redis.
+2. Set env (or use defaults in `application.yml` / `bootstrap.yml`):
+   - User service: `SPRING_DATASOURCE_*`, `JWT_SECRET`, `JWT_TTL_SECONDS`, OAuth URLs if using Google.
+   - Match service: `SPRING_DATASOURCE_*`, `REDIS_HOST`, `REDIS_PORT`, `USER_SERVICE_URL`, `JWT_SECRET`.
+   - Gateway: `USER_SERVICE_URL`, `MATCH_SERVICE_URL`, `JWT_SECRET`.
+3. Run from `backend`:
+   ```bash
+   mvn -pl user-service spring-boot:run
+   mvn -pl match-service spring-boot:run
+   mvn -pl api-gateway spring-boot:run
+   ```
+4. Run frontend (see [Development](#development)).
 
 ---
 
-## Building for Production
+## Environment Variables
 
-```bash
-# Backend JARs
-cd backend
-mvn clean package -DskipTests
+### Docker Compose (backend services)
 
-# Frontend static build
-cd frontend
-npm run build
-```
+| Service | Variable | Description |
+|---------|----------|-------------|
+| user-service | `SPRING_DATASOURCE_URL` | JDBC URL for user DB |
+| user-service | `JWT_SECRET` | Secret for JWT (min 32 chars) |
+| user-service | `JWT_TTL_SECONDS` | Token TTL (e.g. 18000) |
+| user-service | `OAUTH2_*` | OAuth2 redirect URIs for Google |
+| match-service | `SPRING_DATASOURCE_*` | Match DB |
+| match-service | `REDIS_HOST`, `REDIS_PORT` | Redis for matchmaking queue |
+| match-service | `USER_SERVICE_URL` | URL of user-service (for user info) |
+| api-gateway | `USER_SERVICE_URL`, `MATCH_SERVICE_URL` | Backend service URLs |
+| api-gateway | `JWT_SECRET` | Same as user-service |
 
-Docker images are built from each service’s `Dockerfile` (see `docker-compose.yml` and `k8s/`).
+### Frontend (build time)
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_BASE` | Base URL of API (e.g. `http://localhost:8080`). If empty, dev proxy is used. |
 
 ---
 
 ## Kubernetes Deployment
 
-- Manifests are in **`k8s/`**: namespace, backend (api-gateway, user-service, match-service), frontend, infrastructure (MySQL, Redis).
-- See **`k8s/README.md`** for build, push, and deploy steps (e.g. apply namespace, secrets/configmaps, infrastructure, then backend and frontend).
-- Use the same `JWT_SECRET` across user-service, match-service, and api-gateway; configure DB and Redis via secrets.
+Manifests in `k8s/` deploy the full stack (DBs, Redis, config-service, user-service, match-service, api-gateway, frontend) and an Ingress:
+
+- `/api(...)` → api-gateway:8080  
+- `/(...)` → frontend:80  
+
+Apply in order (namespace, secrets, configmap, DBs, Redis, services, ingress). Adjust images, secrets, and ingress host/TLS as needed for your cluster.
 
 ---
 
-## Ports Summary
+## Development
 
-| Service        | Port |
-|----------------|------|
-| API Gateway    | 8080 |
-| User Service   | 8081 |
-| Match Service  | 8082 |
-| Frontend (Vite)| 5173 |
-| Frontend (Docker) | 3000 |
-| User DB (Docker) | 3307 → 3306 |
-| Match DB (Docker) | 3308 → 3306 |
-| Redis          | 6379 |
-| Config Service (optional) | 8888 |
+### Frontend
+
+```bash
+cd frontend
+npm ci
+npm run dev      # http://localhost:5173, proxy to gateway :8080
+npm run build
+npm run preview  # serve dist
+npm run lint
+npm run test     # Vitest
+```
+
+### Backend
+
+```bash
+cd backend
+mvn clean install
+mvn -pl user-service spring-boot:run
+mvn -pl match-service spring-boot:run
+mvn -pl api-gateway spring-boot:run
+```
+
+Use the same `JWT_SECRET` and DB/Redis URLs as in docker-compose when running locally.
 
 ---
 
-## Troubleshooting
+## Testing
 
-- **Connection refused:** Ensure Docker containers are up (`docker ps`) or local MySQL/Redis are running and URLs/ports match config.
-- **Port in use:** Stop the process using 8080, 8081, 8082, or 5173.
-- **401 on protected routes:** Use a valid `Authorization: Bearer <token>` and ensure `JWT_SECRET` is identical in user-service, match-service, and api-gateway.
-- **Match/move errors:** Ensure `X-User-Id` matches a real user and the match is in `ONGOING` status for moves.
-- **Google OAuth:** Add redirect URI `http://localhost:8080/login/oauth2/code/google` (or your gateway URL) in Google Cloud Console and set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for user-service.
+- **Frontend:** `npm run test` in `frontend` (Vitest + jsdom); e.g. `ratings.test.js`.
+- **Backend:** JUnit tests in `match-service` (e.g. `RatingServiceTest`); run with `mvn test` in the module or from `backend`.
 
 ---
 
@@ -337,5 +407,3 @@ Docker images are built from each service’s `Dockerfile` (see `docker-compose.
 
 - **License:** MIT  
 - **Author:** Vikas Reddy  
-
-For a short, copy-paste-friendly runbook (curl examples, ports, troubleshooting), see **QUICK_START.md**.
