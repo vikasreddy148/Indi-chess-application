@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: indichess
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: indichess-user-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://user-db:3306/user_service_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+            - name: SPRING_DATASOURCE_USERNAME
+              value: root
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secrets
+                  key: user-db-password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: jwt-secret
+            - name: JWT_TTL_SECONDS
+              value: "18000"
+            # Adjust these for production/ingress if needed, or keep internal for now
+            - name: OAUTH2_REDIRECT_URI
+              value: http://localhost:3000/login/oauth2/code/google
+            - name: OAUTH2_FRONTEND_REDIRECT
+              value: http://localhost:3000/oauth/callback
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: indichess
+spec:
+  ports:
+    - port: 8081
+      targetPort: 8081
+  selector:
+    app: user-service

@@ -57,6 +57,25 @@ services:
       retries: 5
       start_period: 60s
 
+  config-service:
+    build:
+      context: ./backend
+      dockerfile: config-service/Dockerfile
+    container_name: indichess-config-service
+    ports:
+      - "8888:8888"
+    restart: on-failure
+    environment:
+      - SPRING_PROFILES_ACTIVE=native
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   api-gateway:
     build:
       context: ./backend

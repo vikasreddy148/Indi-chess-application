@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: frontend-config
-  namespace: indichess
-data:
-  VITE_API_BASE_URL: "http://indichess.local"
-  VITE_WS_ENDPOINT: "ws://indichess.local/ws-indichess"
-# Note: Update these for your deployment (e.g. https://api.indichess.com)

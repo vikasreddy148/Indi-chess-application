@@ -81,6 +81,22 @@
                         <target>${java.version}</target>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>com.google.cloud.tools</groupId>
+                    <artifactId>jib-maven-plugin</artifactId>
+                    <version>3.4.1</version>
+                    <configuration>
+                        <from>
+                            <image>eclipse-temurin:17-jre</image>
+                        </from>
+                        <to>
+                            <image>indichess/${project.artifactId}:${project.version}</image>
+                        </to>
+                        <container>
+                            <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                        </container>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>

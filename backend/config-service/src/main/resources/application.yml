@@ -11,6 +11,8 @@ spring:
           uri: ${CONFIG_REPO_URI:file:///tmp/config-repo}
           clone-on-start: true
           default-label: main
+        native:
+          search-locations: ${CONFIG_REPO_PATH:classpath:/config}
 
 logging:
   level:

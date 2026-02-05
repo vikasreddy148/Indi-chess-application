@@ -121,7 +121,9 @@ public class AuthService {
     private void saveSession(User user, String token) {
         String sessionId = UUID.randomUUID().toString();
         String tokenHash = jwtService.hashToken(token);
-        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(jwtService.extractExpiration(token).getTime() / 1000);
+        LocalDateTime expiresAt = jwtService.extractExpiration(token).toInstant()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDateTime();
         
         UserSession session = new UserSession();
         session.setSessionId(sessionId);
