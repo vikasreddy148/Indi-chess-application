@@ -1,8 +1,8 @@
 import { Chess } from 'chess.js'
 import { FILES, RANKS, PIECE_SYMBOLS } from '../lib/chessConstants.js'
 
-const LIGHT_SQ = 'bg-amber-100'
-const DARK_SQ = 'bg-amber-900'
+const LIGHT_SQ = 'bg-[#f0d9b5]'
+const DARK_SQ = 'bg-[#b58863]'
 
 export function ChessBoard({
   fen,
@@ -31,22 +31,14 @@ export function ChessBoard({
       const isLastTo = lastMove?.to === sq
       const isLegal = legalMoves.includes(sq)
 
-      board.push({
-        sq,
-        isLight,
-        piece,
-        isSelected,
-        isLastFrom,
-        isLastTo,
-        isLegal,
-      })
+      board.push({ sq, isLight, piece, isSelected, isLastFrom, isLastTo, isLegal })
     }
   }
 
   return (
-    <div className={`inline-flex flex-col rounded-xl overflow-hidden shadow-2xl border border-emerald-500/20 ${className}`}>
+    <div className={`inline-flex flex-col overflow-hidden rounded-lg ${className}`}>
       <div className="flex">
-        <div className="flex flex-col justify-around py-1 pr-1 bg-slate-800/90 text-white/80 text-sm font-medium shrink-0 w-6">
+        <div className="flex flex-col justify-around py-1.5 pr-1.5 bg-[#2d3748] text-slate-400 text-xs font-medium shrink-0 w-5">
           {ranks.map((r) => (
             <span key={r} className="text-center">{r}</span>
           ))}
@@ -54,9 +46,9 @@ export function ChessBoard({
         <div className="grid grid-cols-8" style={{ aspectRatio: '1', width: 'min(70vmin, 480px)' }}>
           {board.map(({ sq, isLight, piece, isSelected, isLastFrom, isLastTo, isLegal }) => {
             let bg = isLight ? LIGHT_SQ : DARK_SQ
-            if (isLastTo) bg = 'bg-emerald-400/40'
-            else if (isLastFrom) bg = 'bg-emerald-500/30'
-            else if (isSelected) bg = 'bg-emerald-500/50'
+            if (isLastTo) bg = 'bg-amber-400/50'
+            else if (isLastFrom) bg = 'bg-amber-500/40'
+            else if (isSelected) bg = 'bg-indigo-400/60'
 
             return (
               <button
@@ -66,15 +58,15 @@ export function ChessBoard({
                 disabled={disabled}
                 className={`
                   relative w-full aspect-square flex items-center justify-center
-                  ${bg} border-2 transition-colors
-                  ${isSelected ? 'border-emerald-400 shadow-lg shadow-emerald-500/30' : 'border-transparent'}
+                  ${bg} transition-all duration-150
+                  ${isSelected ? 'ring-2 ring-indigo-500 ring-inset' : ''}
                   ${!disabled ? 'hover:brightness-95 cursor-pointer' : 'cursor-default'}
                 `}
               >
                 {piece && (
                   <span
                     className={`text-3xl sm:text-4xl md:text-5xl select-none pointer-events-none ${
-                      piece.color === 'w' ? 'text-slate-800 drop-shadow' : 'text-slate-900'
+                      piece.color === 'w' ? 'text-slate-800 drop-shadow-md' : 'text-slate-900 drop-shadow'
                     }`}
                     style={{ fontFamily: 'Georgia, serif' }}
                   >
@@ -82,10 +74,10 @@ export function ChessBoard({
                   </span>
                 )}
                 {isLegal && !piece && (
-                  <span className="absolute w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500/80 pointer-events-none" />
+                  <span className="absolute w-2.5 h-2.5 rounded-full bg-indigo-500/70 pointer-events-none" />
                 )}
                 {isLegal && piece && (
-                  <span className="absolute inset-0 rounded-sm ring-2 ring-emerald-400/60 ring-inset pointer-events-none" />
+                  <span className="absolute inset-0.5 rounded-sm ring-2 ring-amber-400/80 pointer-events-none" />
                 )}
               </button>
             )
@@ -93,8 +85,8 @@ export function ChessBoard({
         </div>
       </div>
       <div className="flex">
-        <div className="w-6 shrink-0 bg-slate-800/90" />
-        <div className="grid grid-cols-8 py-1 bg-slate-800/90 text-white/80 text-sm font-medium" style={{ width: 'min(70vmin, 480px)' }}>
+        <div className="w-5 shrink-0 bg-[#2d3748]" />
+        <div className="grid grid-cols-8 py-1.5 bg-[#2d3748] text-slate-400 text-xs font-medium" style={{ width: 'min(70vmin, 480px)' }}>
           {files.map((f) => (
             <span key={f} className="text-center">{f}</span>
           ))}

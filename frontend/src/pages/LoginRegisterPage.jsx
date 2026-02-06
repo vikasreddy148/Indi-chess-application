@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
@@ -17,7 +17,6 @@ export default function LoginRegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -64,56 +63,49 @@ export default function LoginRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 relative overflow-hidden">
-      <div
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{
-          backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(16,185,129,0.03) 40px, rgba(16,185,129,0.03) 41px),
-            repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(16,185,129,0.03) 40px, rgba(16,185,129,0.03) 41px)`,
-        }}
-      />
-      <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-emerald-500/5 rounded-full blur-3xl" />
-
-      <header className="relative pt-12 pb-8 px-6 flex flex-col items-center gap-2">
-        <Logo showTagline />
-      </header>
-
-      <main className="relative flex-1 flex items-start justify-center px-6 pb-16">
-        <div className="w-full max-w-md rounded-xl bg-white/5 backdrop-blur-xl border border-emerald-500/30 shadow-2xl shadow-black/30 p-6">
-          <div className="flex rounded-xl overflow-hidden bg-white/5 border border-white/10 p-0.5 mb-6">
+    <div className="min-h-screen flex bg-[#fafafa]">
+      <div className="hidden lg:flex flex-1 bg-indigo-600 p-12 items-center justify-center">
+        <div className="max-w-md">
+          <h2 className="text-4xl font-bold text-white tracking-tight">
+            Play chess the way it was meant to be played.
+          </h2>
+          <p className="text-indigo-100 mt-6 text-lg leading-relaxed">
+            Real-time games, fair matchmaking, and a beautiful interface. Join thousands of players.
+          </p>
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-16">
+        <div className="w-full max-w-md mx-auto">
+          <Link to="/" className="inline-block mb-12">
+            <Logo compact />
+          </Link>
+          <div className="flex rounded-xl bg-slate-100 p-1 mb-8">
             <button
               type="button"
               onClick={() => { setTab(TAB_LOGIN); setError(''); }}
-              className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${
-                tab === TAB_LOGIN
-                  ? 'bg-emerald-500 text-white shadow'
-                  : 'text-white/80 hover:text-white'
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                tab === TAB_LOGIN ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Login
+              Sign in
             </button>
             <button
               type="button"
               onClick={() => { setTab(TAB_REGISTER); setError(''); }}
-              className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${
-                tab === TAB_REGISTER
-                  ? 'bg-emerald-500 text-white shadow'
-                  : 'text-white/80 hover:text-white'
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                tab === TAB_REGISTER ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Register
+              Create account
             </button>
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <Input
               type="text"
-              placeholder="Username or Email"
-              icon="user"
-              value={tab === TAB_REGISTER ? username : username}
+              placeholder="Username or email"
+              value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete={tab === TAB_LOGIN ? 'username' : 'username'}
-              aria-label="Username or Email"
             />
             {tab === TAB_REGISTER && (
               <Input
@@ -122,63 +114,61 @@ export default function LoginRegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                aria-label="Email"
-                className="pl-4"
               />
             )}
             <Input
               type="password"
               placeholder="Password"
-              icon="lock"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={tab === TAB_LOGIN ? 'current-password' : 'new-password'}
-              aria-label="Password"
             />
-
             {error && (
-              <div className="rounded-xl bg-red-500/20 border border-red-500/50 px-4 py-3 flex items-center gap-2 text-red-200 text-sm">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white font-bold">!</span>
+              <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
-
-            <Button type="submit" variant="primary" className="w-full py-3.5 rounded-xl" disabled={loading}>
-              {loading ? 'Please wait…' : tab === TAB_LOGIN ? 'Sign In' : 'Create Account'}
-            </Button>
-
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full py-3.5 rounded-xl border border-emerald-500/50 flex items-center justify-center gap-2"
-              onClick={() => {
-                const base = getOAuthBase()
-                const url = base ? `${base}/oauth2/authorization/google` : '/oauth2/authorization/google'
-                window.location.href = url
-              }}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              Continue with Google
+            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
+              {loading ? 'Please wait…' : tab === TAB_LOGIN ? 'Sign in' : 'Create account'}
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-white/70 text-sm">
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-transparent px-4 text-sm text-slate-500">or</span>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => {
+              const base = getOAuthBase()
+              window.location.href = base ? `${base}/oauth2/authorization/google` : '/oauth2/authorization/google'
+            }}
+          >
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            Continue with Google
+          </Button>
+          <p className="mt-8 text-center text-sm text-slate-500">
             {tab === TAB_LOGIN ? "Don't have an account? " : 'Already have an account? '}
             <button
               type="button"
               onClick={() => { setTab(tab === TAB_LOGIN ? TAB_REGISTER : TAB_LOGIN); setError(''); }}
-              className="text-emerald-400 hover:text-emerald-300 font-medium"
+              className="font-medium text-indigo-600 hover:text-indigo-500"
             >
-              {tab === TAB_LOGIN ? 'Register' : 'Login'}
+              {tab === TAB_LOGIN ? 'Create account' : 'Sign in'}
             </button>
           </p>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

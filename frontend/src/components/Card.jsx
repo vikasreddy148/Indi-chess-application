@@ -1,7 +1,12 @@
-export function Card({ className = '', children, ...props }) {
+export function Card({ className = '', hover = false, children, ...props }) {
   return (
     <div
-      className={`rounded-xl bg-white/5 backdrop-blur-md border border-emerald-500/20 shadow-xl shadow-black/20 ${className}`}
+      className={`
+        rounded-2xl bg-white border border-slate-200/80
+        shadow-sm
+        ${hover ? 'transition-all duration-300 hover:shadow-lg hover:border-slate-300/80 hover:-translate-y-0.5' : ''}
+        ${className}
+      `}
       {...props}
     >
       {children}
@@ -11,7 +16,7 @@ export function Card({ className = '', children, ...props }) {
 
 export function CardHeader({ className = '', children, ...props }) {
   return (
-    <div className={`border-b border-white/10 px-6 py-4 ${className}`} {...props}>
+    <div className={`px-6 py-5 border-b border-slate-100 ${className}`} {...props}>
       {children}
     </div>
   )
@@ -19,7 +24,7 @@ export function CardHeader({ className = '', children, ...props }) {
 
 export function CardTitle({ className = '', children, ...props }) {
   return (
-    <h2 className={`text-lg font-bold text-white ${className}`} {...props}>
+    <h2 className={`text-lg font-semibold text-slate-900 tracking-tight ${className}`} {...props}>
       {children}
     </h2>
   )

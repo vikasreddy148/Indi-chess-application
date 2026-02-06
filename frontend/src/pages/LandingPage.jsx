@@ -2,176 +2,187 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
-import { Card } from '../components/Card.jsx'
 
-function LandingHeader() {
+function Nav() {
   const { isAuthenticated } = useAuth()
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-white/5">
-      <Link to="/" className="flex items-center gap-2">
-        <Logo compact />
-      </Link>
-      <nav className="flex items-center gap-4">
-        {isAuthenticated ? (
-          <Link to="/home">
-            <Button variant="primary">Play Now</Button>
-          </Link>
-        ) : (
-          <>
-            <Link to="/login" className="text-white/90 hover:text-white font-medium transition-colors">
-              Login
+    <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <Link to="/" className="flex items-center">
+          <Logo compact />
+        </Link>
+        <div className="flex items-center gap-8">
+          <a href="#features" className="text-sm font-medium text-slate-600 hover:text-slate-900 hidden sm:block transition-colors">
+            Features
+          </a>
+          <a href="#how-it-works" className="text-sm font-medium text-slate-600 hover:text-slate-900 hidden sm:block transition-colors">
+            How it works
+          </a>
+          {isAuthenticated ? (
+            <Link to="/home">
+              <Button variant="primary" size="sm">Play Now</Button>
             </Link>
-            <Link to="/login">
-              <Button variant="primary">Register</Button>
-            </Link>
-          </>
-        )}
-      </nav>
-    </header>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+                Sign in
+              </Link>
+              <Link to="/login">
+                <Button variant="primary" size="sm">Get started</Button>
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    </nav>
   )
 }
 
 function Hero() {
   const { isAuthenticated } = useAuth()
   return (
-    <section className="relative pt-32 pb-24 px-6 overflow-hidden">
-      <div
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}
-      />
-      <div className="absolute top-1/4 right-0 w-1/2 h-1/2 bg-emerald-500/5 rounded-full blur-3xl" />
-      <div className="relative max-w-4xl mx-auto text-center">
-        <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 tracking-tight">
-          Play Chess Online
-        </h1>
-        <p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto">
-          Challenge players worldwide in real-time
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          {isAuthenticated ? (
-            <Link to="/home">
-              <Button variant="primary" className="px-8 py-4 text-lg rounded-xl shadow-emerald-500/30 border border-emerald-400/50">
-                Play Online
-              </Button>
-            </Link>
-          ) : (
-            <>
-              <Link to="/login">
-                <Button variant="primary" className="px-8 py-4 text-lg rounded-xl shadow-emerald-500/30 border border-emerald-400/50">
-                  Play Online
-                </Button>
-              </Link>
-              <Link to="/local">
-                <Button variant="secondary" className="px-8 py-4 text-lg rounded-xl border border-emerald-400/60">
-                  Play Locally
-                </Button>
-              </Link>
-            </>
-          )}
+    <section className="relative overflow-hidden">
+      <div className="absolute top-1/2 right-0 w-[600px] h-[600px] -translate-y-1/2 translate-x-1/3 bg-indigo-100 rounded-full blur-3xl opacity-60" />
+      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-indigo-50 rounded-full blur-3xl opacity-50" />
+      <div className="relative max-w-6xl mx-auto px-6 py-24 lg:py-32">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-8">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
+              The modern way to
+              <span className="text-indigo-600"> play chess</span>
+            </h1>
+            <p className="text-xl text-slate-600 max-w-xl leading-relaxed">
+              Real-time matchmaking, fair play, and a beautiful experience. Challenge players worldwide in seconds.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              {isAuthenticated ? (
+                <Link to="/home">
+                  <Button variant="primary" size="xl">Play online</Button>
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button variant="primary" size="xl">Start playing free</Button>
+                  </Link>
+                  <Link to="/local">
+                    <Button variant="outline" size="xl">Play locally</Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="relative flex justify-center lg:justify-end">
+            <div className="w-full max-w-sm aspect-square rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-1 shadow-2xl shadow-indigo-500/20">
+              <div className="w-full h-full rounded-[22px] bg-white/10 backdrop-blur flex items-center justify-center">
+                <span className="text-[120px] opacity-90">♞</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-slate-700/30 rounded-full blur-3xl -z-10" />
     </section>
   )
 }
 
-const FEATURES = [
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    title: 'Fast matchmaking',
-    desc: 'Find an opponent in seconds. No waiting, just chess.',
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1 12a11 11 0 1022 0 11 11 0 00-22 0z" />
-      </svg>
-    ),
-    title: 'Real-time online games',
-    desc: 'Seamless gameplay with low latency. Experience live chess.',
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-      </svg>
-    ),
-    title: 'Secure & fair play',
-    desc: 'Robust anti-cheat measures ensure a clean gaming environment.',
-  },
-]
-
-function Features() {
+function Stats() {
+  const stats = [
+    { value: '10k+', label: 'Games played' },
+    { value: '50+', label: 'Countries' },
+    { value: '&lt;2s', label: 'Matchmaking' },
+  ]
   return (
-    <section className="py-20 px-6">
-      <h2 className="text-3xl font-bold text-white text-center mb-12">Features</h2>
-      <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
-        {FEATURES.map((f) => (
-          <Card key={f.title} className="p-6 border-emerald-500/20">
-            <div className="text-emerald-400 mb-4">{f.icon}</div>
-            <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
-            <p className="text-white/70 text-sm">{f.desc}</p>
-          </Card>
-        ))}
+    <section className="border-y border-slate-200/80 bg-white/50">
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-3 gap-8">
+          {stats.map((s) => (
+            <div key={s.label} className="text-center">
+              <div className="text-3xl font-bold text-slate-900">{s.value}</div>
+              <div className="text-sm text-slate-500 mt-1">{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   )
 }
 
-const STEPS = [
-  {
-    step: 1,
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-    title: 'Create an account',
-    desc: 'Sign up in minutes to get started.',
-  },
-  {
-    step: 2,
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
-    ),
-    title: 'Find a match',
-    desc: 'Choose your time control and start searching.',
-  },
-  {
-    step: 3,
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-      </svg>
-    ),
-    title: 'Play and improve',
-    desc: 'Enjoy the game, analyze your moves, and boost your rating.',
-  },
-]
+function Features() {
+  const features = [
+    {
+      title: 'Lightning fast matchmaking',
+      desc: 'Find an opponent in under 2 seconds. No queues, no waiting—just chess.',
+      icon: '⚡',
+    },
+    {
+      title: 'Real-time gameplay',
+      desc: 'Seamless WebSocket connection. Every move syncs instantly.',
+      icon: '🌐',
+    },
+    {
+      title: 'Fair play guaranteed',
+      desc: 'Anti-cheat measures and transparent rating system.',
+      icon: '✓',
+    },
+  ]
+  return (
+    <section id="features" className="py-24 lg:py-32">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold text-slate-900 tracking-tight">
+            Built for serious players
+          </h2>
+          <p className="text-xl text-slate-600 mt-4 max-w-2xl mx-auto">
+            Everything you need for competitive online chess
+          </p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {features.map((f) => (
+            <div
+              key={f.title}
+              className="p-8 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-lg hover:border-slate-300/80 transition-all duration-300 group"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-2xl mb-6 group-hover:bg-indigo-100 transition-colors">
+                {f.icon}
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900 mb-3">{f.title}</h3>
+              <p className="text-slate-600 leading-relaxed">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
 
 function HowItWorks() {
+  const steps = [
+    { num: '01', title: 'Create account', desc: 'Sign up in 30 seconds. No credit card required.' },
+    { num: '02', title: 'Pick time control', desc: 'Choose Rapid, Blitz, or Classical.' },
+    { num: '03', title: 'Play & improve', desc: 'Match with opponents and climb the ranks.' },
+  ]
   return (
-    <section className="py-20 px-6">
-      <h2 className="text-3xl font-bold text-white text-center mb-12">How It Works</h2>
-      <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
-        {STEPS.map((s) => (
-          <Card key={s.step} className="p-6 border-emerald-500/20 relative">
-            <div className="absolute -top-3 left-6 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm">
-              {s.step}
+    <section id="how-it-works" className="py-24 lg:py-32 bg-slate-50/50">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold text-slate-900 tracking-tight">
+            Three steps to your first game
+          </h2>
+          <p className="text-xl text-slate-600 mt-4 max-w-2xl mx-auto">
+            Get from signup to checkmate in minutes
+          </p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-12 relative">
+          {steps.map((s, i) => (
+            <div key={s.num} className="relative">
+              <div className="text-6xl font-extrabold text-indigo-100 mb-4">{s.num}</div>
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">{s.title}</h3>
+              <p className="text-slate-600">{s.desc}</p>
+              {i < steps.length - 1 && (
+                <div className="hidden md:block absolute top-8 left-full w-full h-0.5 bg-slate-200 -translate-x-1/2" />
+              )}
             </div>
-            <div className="text-emerald-400 mb-4 mt-2">{s.icon}</div>
-            <h3 className="text-lg font-bold text-white mb-2">{s.title}</h3>
-            <p className="text-white/70 text-sm">{s.desc}</p>
-          </Card>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   )
@@ -179,14 +190,23 @@ function HowItWorks() {
 
 function CTA() {
   return (
-    <section className="py-20 px-6">
-      <div className="max-w-2xl mx-auto text-center">
-        <h2 className="text-3xl font-bold text-white mb-6">Ready to play?</h2>
-        <Link to="/login">
-          <Button variant="primary" className="px-10 py-4 text-lg rounded-xl shadow-emerald-500/30 border border-emerald-400/50">
-            Get Started Free
-          </Button>
-        </Link>
+    <section className="py-24 lg:py-32">
+      <div className="max-w-4xl mx-auto px-6 text-center">
+        <div className="rounded-3xl bg-indigo-600 px-8 py-16 lg:py-20">
+          <h2 className="text-3xl lg:text-4xl font-bold text-white tracking-tight">
+            Ready to play?
+          </h2>
+          <p className="text-indigo-100 mt-4 text-lg">
+            Join thousands of players. Free forever.
+          </p>
+          <div className="mt-8">
+            <Link to="/login">
+              <button className="h-14 px-10 rounded-2xl bg-white text-indigo-600 font-semibold hover:bg-indigo-50 transition-colors">
+                Get started free
+              </button>
+            </Link>
+          </div>
+        </div>
       </div>
     </section>
   )
@@ -194,12 +214,37 @@ function CTA() {
 
 function Footer() {
   return (
-    <footer className="py-8 px-6 border-t border-white/5">
-      <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-6 text-sm text-white/60">
-        <a href="#about" className="hover:text-white transition-colors">About</a>
-        <a href="#github" className="hover:text-white transition-colors">GitHub</a>
-        <a href="#privacy" className="hover:text-white transition-colors">Privacy</a>
-        <a href="#terms" className="hover:text-white transition-colors">Terms</a>
+    <footer className="border-t border-slate-200 bg-white">
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div>
+            <div className="font-semibold text-slate-900 mb-4">Product</div>
+            <div className="space-y-3">
+              <a href="#features" className="block text-sm text-slate-500 hover:text-slate-900">Features</a>
+              <Link to="/local" className="block text-sm text-slate-500 hover:text-slate-900">Local play</Link>
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold text-slate-900 mb-4">Company</div>
+            <div className="space-y-3">
+              <a href="#about" className="block text-sm text-slate-500 hover:text-slate-900">About</a>
+              <a href="#contact" className="block text-sm text-slate-500 hover:text-slate-900">Contact</a>
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold text-slate-900 mb-4">Legal</div>
+            <div className="space-y-3">
+              <a href="#privacy" className="block text-sm text-slate-500 hover:text-slate-900">Privacy</a>
+              <a href="#terms" className="block text-sm text-slate-500 hover:text-slate-900">Terms</a>
+            </div>
+          </div>
+          <div>
+            <Logo compact />
+          </div>
+        </div>
+        <div className="mt-12 pt-8 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-slate-500">© {new Date().getFullYear()} IndiChess. All rights reserved.</p>
+        </div>
       </div>
     </footer>
   )
@@ -207,10 +252,11 @@ function Footer() {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
-      <LandingHeader />
+    <div className="min-h-screen bg-[#fafafa]">
+      <Nav />
       <main>
         <Hero />
+        <Stats />
         <Features />
         <HowItWorks />
         <CTA />

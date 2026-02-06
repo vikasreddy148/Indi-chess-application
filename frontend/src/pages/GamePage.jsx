@@ -4,23 +4,8 @@ import { Chess } from 'chess.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Logo } from '../components/Logo.jsx'
 import { Button } from '../components/Button.jsx'
-import { Card } from '../components/Card.jsx'
 import { ChessBoard } from '../components/ChessBoard.jsx'
 
-function ResignConfirmModal({ onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resign-title">
-      <div className="w-full max-w-sm rounded-xl bg-slate-800 border border-white/10 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h3 id="resign-title" className="text-lg font-semibold text-white mb-2">Resign game?</h3>
-        <p className="text-white/80 text-sm mb-6">Are you sure? This will end the game.</p>
-        <div className="flex gap-3">
-          <Button variant="danger" className="flex-1 rounded-xl" onClick={onConfirm}>Resign</Button>
-          <Button variant="secondary" className="flex-1 rounded-xl" onClick={onCancel}>Cancel</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
 import * as matchApi from '../api/match.js'
 import * as userApi from '../api/users.js'
 import * as ratingsApi from '../api/ratings.js'
@@ -34,10 +19,29 @@ import {
   sendDeclineDraw,
 } from '../ws/stompClient.js'
 
+function ResignConfirmModal({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resign-title">
+      <div className="w-full max-w-sm rounded-xl bg-[#2d3748] border border-white/10 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <h3 id="resign-title" className="text-lg font-semibold text-white mb-2">Resign game?</h3>
+        <p className="text-slate-400 text-sm mb-6">Are you sure? This will end the game.</p>
+        <div className="flex gap-3">
+          <button onClick={onConfirm} className="flex-1 h-10 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium">
+            Resign
+          </button>
+          <button onClick={onCancel} className="flex-1 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function GamePage() {
   const { gameId } = useParams()
   const matchId = gameId ? Number(gameId) : null
-  const { user, getToken, getUserId } = useAuth()
+  const { getToken, getUserId } = useAuth()
   const userId = getUserId()
   const [match, setMatch] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -58,6 +62,83 @@ export default function GamePage() {
   const whiteToMove = game.turn() === 'w'
   const myTurn = match?.status === 'ONGOING' && ((amWhite && whiteToMove) || (!amWhite && !whiteToMove))
   const drawOffered = match?.status === 'ONGOING' && match?.drawOfferedByPlayerId != null && match.drawOfferedByPlayerId !== userId
+
+  const gameTypeStr = match?.gameType || 'RAPID'
+  const myRating = ratingsApi.ratingForGameType(myRatings, gameTypeStr)
+  const opponentRating = ratingsApi.ratingForGameType(opponentRatings, gameTypeStr)
+
+  const [showResignConfirm, setShowResignConfirm] = useState(false)
+
+  const formatClock = (seconds) => {
+    if (seconds == null || seconds < 0) return '0:00'
+    const m = Math.floor(seconds / 60)
+    const s = Math.max(0, Math.floor(seconds % 60))
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
+  const [displayWhiteClock, setDisplayWhiteClock] = useState('10:00')
+  const [displayBlackClock, setDisplayBlackClock] = useState('10:00')
+  const matchRef = useRef(match)
+  const gameStartRef = useRef(Date.now())
+
+  useEffect(() => {
+    matchRef.current = match
+  }, [match])
+
+  function parseServerTime(val) {
+    if (!val) return null
+    if (typeof val === 'number') return val
+    if (Array.isArray(val)) {
+      const [y, mo, d, h = 0, min = 0, s = 0] = val
+      const date = new Date(y, (mo || 1) - 1, d || 1, h, min, s)
+      return isNaN(date.getTime()) ? null : date.getTime()
+    }
+    const date = new Date(val)
+    return isNaN(date.getTime()) ? null : date.getTime()
+  }
+
+  useEffect(() => {
+    if (!match) return
+
+    const p1 = typeof match.player1TimeLeftSeconds === 'number' ? match.player1TimeLeftSeconds : 600
+    const p2 = typeof match.player2TimeLeftSeconds === 'number' ? match.player2TimeLeftSeconds : 600
+
+    if (match.status !== 'ONGOING') {
+      setDisplayWhiteClock(formatClock(p1))
+      setDisplayBlackClock(formatClock(p2))
+      return
+    }
+
+    gameStartRef.current = Date.now()
+
+    const tick = () => {
+      const m = matchRef.current
+      if (!m || m.status !== 'ONGOING') return
+
+      const p1Time = typeof m.player1TimeLeftSeconds === 'number' ? m.player1TimeLeftSeconds : 600
+      const p2Time = typeof m.player2TimeLeftSeconds === 'number' ? m.player2TimeLeftSeconds : 600
+
+      let lastMoveAt = parseServerTime(m.lastMoveAt) ?? parseServerTime(m.startedAt)
+      if (!lastMoveAt) lastMoveAt = gameStartRef.current
+
+      const fenParts = (m.fenCurrent || '').split(' ')
+      const isWhiteToMove = fenParts[1] === 'w'
+
+      const elapsed = Math.floor((Date.now() - lastMoveAt) / 1000)
+
+      if (isWhiteToMove) {
+        setDisplayWhiteClock(formatClock(Math.max(0, p1Time - elapsed)))
+        setDisplayBlackClock(formatClock(p2Time))
+      } else {
+        setDisplayWhiteClock(formatClock(p1Time))
+        setDisplayBlackClock(formatClock(Math.max(0, p2Time - elapsed)))
+      }
+    }
+
+    tick()
+    const id = setInterval(tick, 250)
+    return () => clearInterval(id)
+  }, [match])
 
   useEffect(() => {
     if (!matchId) {
@@ -126,42 +207,6 @@ export default function GamePage() {
     })
     return () => { cancelled = true }
   }, [opponentId])
-
-  const gameTypeStr = match?.gameType || 'RAPID'
-  const myRating = ratingsApi.ratingForGameType(myRatings, gameTypeStr)
-  const opponentRating = ratingsApi.ratingForGameType(opponentRatings, gameTypeStr)
-
-  const [showResignConfirm, setShowResignConfirm] = useState(false)
-  const [clockWhite, setClockWhite] = useState(null)
-  const [clockBlack, setClockBlack] = useState(null)
-  useEffect(() => {
-    if (!match || match.status !== 'ONGOING') return
-    const p1 = match.player1TimeLeftSeconds ?? 600
-    const p2 = match.player2TimeLeftSeconds ?? 600
-    const lastMoveAt = match.lastMoveAt ? new Date(match.lastMoveAt).getTime() : Date.now()
-    const whiteToMove = game.turn() === 'w'
-    const tick = () => {
-      const elapsed = Math.floor((Date.now() - lastMoveAt) / 1000)
-      if (whiteToMove) {
-        setClockWhite(Math.max(0, p1 - elapsed))
-        setClockBlack(p2)
-      } else {
-        setClockWhite(p1)
-        setClockBlack(Math.max(0, p2 - elapsed))
-      }
-    }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [match?.player1TimeLeftSeconds, match?.player2TimeLeftSeconds, match?.lastMoveAt, match?.currentPly, match?.status])
-  const formatClock = (seconds) => {
-    if (seconds == null) return '0:00'
-    const m = Math.floor(seconds / 60)
-    const s = Math.max(0, Math.floor(seconds % 60))
-    return `${m}:${String(s).padStart(2, '0')}`
-  }
-  const displayWhiteClock = clockWhite != null ? formatClock(clockWhite) : formatClock(match?.player1TimeLeftSeconds ?? 600)
-  const displayBlackClock = clockBlack != null ? formatClock(clockBlack) : formatClock(match?.player2TimeLeftSeconds ?? 600)
 
   useEffect(() => {
     if (!matchId || !match || loading) return
@@ -257,105 +302,151 @@ export default function GamePage() {
     const black = moveHistory[i + 1]
     const num = Math.floor(i / 2) + 1
     moveListFormatted.push(
-      <span key={i} className="flex gap-1 flex-wrap">
-        <span className="text-white/50">{num}.</span>
+      <span key={i} className="flex gap-1 flex-wrap text-slate-300">
+        <span className="text-slate-500">{num}.</span>
         {white && <span>{white.moveNotation || `${white.fromSquare}-${white.toSquare}`}</span>}
         {black && <span>{black.moveNotation || `${black.fromSquare}-${black.toSquare}`}</span>}
       </span>
     )
   }
 
+  const opponentName = opponent ? opponent.username : `Opponent #${opponentId}`
+  const myName = 'You'
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4">
-        <svg className="animate-spin h-10 w-10 text-emerald-400" fill="none" viewBox="0 0 24 24">
+      <div className="min-h-screen bg-[#1a202c] flex flex-col items-center justify-center gap-5">
+        <svg className="animate-spin h-10 w-10 text-indigo-400" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
         </svg>
-        <p className="text-white font-medium">Loading game...</p>
+        <p className="text-slate-400">Loading game...</p>
       </div>
     )
   }
 
   if (error || !match) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-[#1a202c] flex flex-col items-center justify-center gap-5">
         <p className="text-red-400">{error || 'Game not found.'}</p>
-        <Link to="/home"><Button variant="primary">Back to Home</Button></Link>
+        <Link to="/home"><button className="h-10 px-6 rounded-lg bg-indigo-600 text-white font-medium">Back to Home</button></Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4 bg-slate-900/90 backdrop-blur-md border-b border-white/5 shrink-0">
+    <div className="min-h-screen bg-[#1a202c] flex flex-col">
+      <header className="flex items-center justify-between px-4 py-3 bg-[#2d3748] border-b border-white/5">
         <Link to="/home" className="flex items-center gap-2">
-          <Logo compact />
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">♞</div>
+          <span className="font-bold text-white">Indi<span className="text-indigo-400">Chess</span></span>
         </Link>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-sm font-medium">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01" />
-          </svg>
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
           {connected ? 'Connected' : 'Reconnecting...'}
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 min-h-0">
-        <div className="flex-1 flex items-center justify-center lg:justify-start relative min-w-0">
-          <ChessBoard
-            fen={fen}
-            orientation={amWhite ? 'white' : 'black'}
-            selectedSquare={selectedSquare}
-            lastMove={lastMove}
-            legalMoves={legalSquares}
-            onSquareClick={handleSquareClick}
-            disabled={!myTurn}
-          />
-        </div>
+      <main className="flex-1 flex flex-col lg:flex-row lg:items-start lg:justify-center gap-0 p-4 min-h-0 overflow-auto">
+        <div className="flex flex-col items-center shrink-0">
+          <div className="flex flex-col gap-0 w-fit">
+            <div className="flex items-center justify-between w-full px-3 py-2 bg-[#2d3748] rounded-t-xl border-b border-white/5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                  {opponent ? opponent.username?.charAt(0)?.toUpperCase() : '?'}
+                </div>
+                <span className="text-white font-medium truncate">{opponentName}</span>
+                <span className="text-slate-400 text-sm shrink-0">({opponentRating})</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className={`font-mono font-semibold tabular-nums ${game.turn() === (amWhite ? 'b' : 'w') ? 'text-amber-400' : 'text-slate-400'}`}>
+                  {amWhite ? displayBlackClock : displayWhiteClock}
+                </span>
+              </div>
+            </div>
 
-        <aside className="w-full lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
-          <div className="flex items-center gap-3 px-2 text-sm text-white/80">
-            <span>Your rating:</span>
-            <span className="font-medium text-emerald-400">{myRating}</span>
+            <div className="p-1 bg-[#2d3748]">
+              <ChessBoard
+                fen={fen}
+                orientation={amWhite ? 'white' : 'black'}
+                selectedSquare={selectedSquare}
+                lastMove={lastMove}
+                legalMoves={legalSquares}
+                onSquareClick={handleSquareClick}
+                disabled={!myTurn}
+              />
+            </div>
+
+            <div className="flex items-center justify-between w-full px-3 py-2 bg-[#2d3748] rounded-b-xl border-t border-white/5">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-bold shrink-0">Y</div>
+                <span className="text-white font-medium truncate">{myName}</span>
+                <span className="text-slate-400 text-sm shrink-0">({myRating})</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className={`font-mono font-semibold tabular-nums ${game.turn() === (amWhite ? 'w' : 'b') ? 'text-amber-400' : 'text-slate-400'}`}>
+                  {amWhite ? displayWhiteClock : displayBlackClock}
+                </span>
+              </div>
+            </div>
           </div>
-          {match.status === 'ONGOING' && (
-            <Card className="p-3 flex flex-col gap-2">
-              <div className={`flex justify-between items-center rounded-lg px-3 py-2 ${game.turn() === 'w' ? 'bg-white/10' : 'bg-transparent'}`}>
-                <span className="text-white/80 text-sm">White</span>
-                <span className="font-mono font-semibold text-white tabular-nums">{displayWhiteClock}</span>
-              </div>
-              <div className={`flex justify-between items-center rounded-lg px-3 py-2 ${game.turn() === 'b' ? 'bg-white/10' : 'bg-transparent'}`}>
-                <span className="text-white/80 text-sm">Black</span>
-                <span className="font-mono font-semibold text-white tabular-nums">{displayBlackClock}</span>
-              </div>
-            </Card>
-          )}
-          <Card className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-slate-600 flex items-center justify-center text-white/80 text-lg font-bold">
-              {opponent ? (opponent.username?.charAt(0)?.toUpperCase() ?? String(opponentId).slice(-1)) : '…'}
-            </div>
-            <div>
-              <p className="font-bold text-white">{opponent ? opponent.username : `Opponent #${opponentId}`}</p>
-              <p className="text-sm text-emerald-400">Rating: {opponentRating}</p>
-            </div>
-          </Card>
 
           {match.status === 'ONGOING' && myTurn && (
-            <div className="rounded-xl bg-emerald-500 py-3 px-4 flex items-center gap-2 text-white font-medium border border-emerald-400/50 shadow-lg shadow-emerald-500/20">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-              Your turn
+            <p className="mt-2 text-sm text-amber-400 font-medium">Your turn</p>
+          )}
+        </div>
+
+        <aside className="w-full lg:w-72 flex flex-col gap-3 shrink-0 mt-4 lg:mt-0 lg:ml-4">
+          <div className="rounded-xl bg-[#2d3748] border border-white/5 overflow-hidden">
+            <div className="px-3 py-2 border-b border-white/5 text-sm font-semibold text-white">Moves</div>
+            <div className="p-3 max-h-48 overflow-y-auto space-y-1 font-mono text-sm">
+              {moveListFormatted.length ? moveListFormatted : <span className="text-slate-500">No moves yet</span>}
+            </div>
+          </div>
+
+          {match.status === 'ONGOING' && (
+            <div className="flex flex-wrap gap-2">
+              <button onClick={handleResignClick} className="flex-1 min-w-[100px] h-10 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium text-sm">
+                Resign
+              </button>
+              {!drawOffered ? (
+                <button onClick={handleOfferDraw} className="flex-1 min-w-[100px] h-10 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm">
+                  Offer Draw
+                </button>
+              ) : (
+                <>
+                  <button onClick={handleAcceptDraw} className="flex-1 min-w-[100px] h-10 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm">
+                    Accept Draw
+                  </button>
+                  <button onClick={handleDeclineDraw} className="flex-1 min-w-[100px] h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium text-sm">
+                    Decline
+                  </button>
+                </>
+              )}
             </div>
           )}
 
           {match.status !== 'ONGOING' && (
-            <div className={`rounded-xl py-4 px-4 text-center font-semibold border ${
+            <Link to="/home" className="block">
+              <button className="w-full h-10 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">
+                Back to Home
+              </button>
+            </Link>
+          )}
+
+          {match.status !== 'ONGOING' && (
+            <div className={`rounded-lg px-4 py-3 text-center text-sm font-semibold ${
               match.status === 'DRAW' || match.status === 'ABANDONED'
-                ? 'bg-white/10 text-white/90 border-white/20'
+                ? 'bg-slate-600/50 text-slate-300'
                 : (match.status === 'PLAYER1_WON' && amWhite) || (match.status === 'PLAYER2_WON' && !amWhite)
-                  ? 'bg-emerald-500/30 text-emerald-400 border-emerald-500/50'
-                  : 'bg-red-500/20 text-red-400 border-red-500/40'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-red-500/20 text-red-400'
             }`}>
               {match.status === 'DRAW' || match.status === 'ABANDONED'
                 ? (match.status === 'DRAW' ? 'Game drawn' : 'Game abandoned')
@@ -364,58 +455,24 @@ export default function GamePage() {
                   : 'You lost'}
             </div>
           )}
-
-          <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 font-semibold text-white">Moves</div>
-            <div className="flex-1 overflow-y-auto p-4 text-sm text-white/90 font-mono space-y-1 max-h-64">
-              {moveListFormatted.length ? moveListFormatted : <span className="text-white/50">No moves yet</span>}
-            </div>
-          </Card>
-
-          {(match.status === 'ONGOING' ? (
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="danger" className="rounded-xl py-3 flex items-center justify-center gap-2" onClick={handleResignClick}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
-                Resign
-              </Button>
-              {!drawOffered ? (
-                <Button variant="primary" className="rounded-xl py-3 flex items-center justify-center gap-2" onClick={handleOfferDraw}>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a7.5 7.5 0 0115 0v1m-15 0h15" /></svg>
-                  Offer Draw
-                </Button>
-              ) : (
-                <>
-                  <Button variant="primary" className="rounded-xl py-3" onClick={handleAcceptDraw}>Accept Draw</Button>
-                  <Button variant="danger" className="rounded-xl py-3" onClick={handleDeclineDraw}>Decline Draw</Button>
-                </>
-              )}
-            </div>
-          ) : (
-            <Link to="/home" className="block">
-              <Button variant="primary" className="w-full rounded-xl py-3">Back to Home</Button>
-            </Link>
-          ))}
         </aside>
       </main>
 
       {showResignConfirm && (
-        <ResignConfirmModal
-          onConfirm={handleResignConfirm}
-          onCancel={() => setShowResignConfirm(false)}
-        />
+        <ResignConfirmModal onConfirm={handleResignConfirm} onCancel={() => setShowResignConfirm(false)} />
       )}
 
       {match.status !== 'ONGOING' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
-          <div className="w-full max-w-md rounded-2xl bg-slate-800 border border-white/10 p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 id="game-over-title" className="text-2xl font-bold text-white text-center mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-xl bg-[#2d3748] border border-white/10 p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-white text-center mb-2">
               {match.status === 'DRAW' || match.status === 'ABANDONED'
                 ? (match.status === 'DRAW' ? 'Game drawn' : 'Game abandoned')
                 : (match.status === 'PLAYER1_WON' && amWhite) || (match.status === 'PLAYER2_WON' && !amWhite)
                   ? 'You won'
                   : 'You lost'}
             </h2>
-            <p className="text-white/80 text-center text-sm mb-6">
+            <p className="text-slate-400 text-center text-sm mb-6">
               {match.status === 'DRAW' ? 'The game ended in a draw.'
                 : match.status === 'ABANDONED' ? 'The game was abandoned.'
                 : (match.status === 'PLAYER1_WON' && !amWhite) || (match.status === 'PLAYER2_WON' && amWhite)
@@ -423,12 +480,8 @@ export default function GamePage() {
                   : 'Congratulations!'}
             </p>
             <div className="flex flex-col gap-3">
-              <Link to="/home" className="block">
-                <Button variant="primary" className="w-full py-3 rounded-xl">Back to Home</Button>
-              </Link>
-              <Link to="/home" className="block">
-                <Button variant="secondary" className="w-full py-3 rounded-xl">New game</Button>
-              </Link>
+              <Link to="/home"><button className="w-full h-10 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">Back to Home</button></Link>
+              <Link to="/home"><button className="w-full h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium">New game</button></Link>
             </div>
           </div>
         </div>
