@@ -37,7 +37,8 @@ IndiChess is a full-stack online chess platform built with a **microservices arc
 ```
 Indi-chess-application/
 ├── pom.xml                          # Root Maven POM (includes backend module)
-├── docker-compose.yml               # Full stack: services + DBs + Redis + frontend
+├── docker-compose.yml               # Full stack (builds from source)
+├── docker-compose.images.yml        # Full stack from Docker Hub images (no build)
 ├── README.md                        # This file
 │
 ├── backend/                         # Java microservices (Maven multi-module)
@@ -360,21 +361,9 @@ All HTTP APIs are exposed via the **API Gateway** at port **8080**. The gateway 
 
 ## Docker Hub images
 
-### Run with Docker
+Pre-built images are published on Docker Hub. You can run the full IndiChess stack **without building from source** by pulling these images and using the provided Compose file.
 
-From the project root, start the full stack (databases, Redis, and all services). Compose will build images from source if they are not present; to use pre-built images instead, pull them first (see below).
-
-```bash
-cd Indi-chess-application
-docker compose up -d
-```
-
-- **Frontend:** http://localhost:3000  
-- **API Gateway:** http://localhost:8080  
-
-### Pre-built images (Docker Hub)
-
-Images are published on Docker Hub. Pull and use them for deployment (e.g. Kubernetes or another host):
+**Profile:** [hub.docker.com/u/kathulavikasreddy](https://hub.docker.com/u/kathulavikasreddy)
 
 | Service      | Image | Link |
 |-------------|-------|------|
@@ -385,17 +374,107 @@ Images are published on Docker Hub. Pull and use them for deployment (e.g. Kuber
 | API Gateway | `kathulavikasreddy/indichess-api-gateway:latest`   | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-api-gateway) |
 | Frontend    | `kathulavikasreddy/indichess-frontend:latest`      | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-frontend) |
 
-**Pull all:**
+---
+
+### How to run the project using pre-built images
+
+You need **Docker** and **Docker Compose** installed. No Java, Maven, or Node required.
+
+#### Option 1: Run from the cloned repository (recommended)
+
+1. **Clone the repo** and go to the project root:
+   ```bash
+   git clone <repository-url>
+   cd Indi-chess-application
+   ```
+
+2. **Pull all pre-built images** (one-time; can take a few minutes):
+   ```bash
+   docker pull kathulavikasreddy/indichess-eureka-service:latest
+   docker pull kathulavikasreddy/indichess-auth-service:latest
+   docker pull kathulavikasreddy/indichess-user-service:latest
+   docker pull kathulavikasreddy/indichess-match-service:latest
+   docker pull kathulavikasreddy/indichess-api-gateway:latest
+   docker pull kathulavikasreddy/indichess-frontend:latest
+   ```
+   Or pull in one go (Compose will pull when you start):
+   ```bash
+   docker compose -f docker-compose.images.yml pull
+   ```
+
+3. **Start the stack** using the images-only Compose file (no build):
+   ```bash
+   docker compose -f docker-compose.images.yml up -d
+   ```
+   This starts, in order:
+   - **user-db** (MySQL), **match-db** (MySQL), **redis** — databases and cache
+   - **eureka-service** — service discovery (port 8761)
+   - **auth-service** — auth (port 8089)
+   - **user-service** — users and profile (port 8081)
+   - **match-service** — matchmaking and games (port 8082)
+   - **api-gateway** — gateway and routing (port 8080)
+   - **frontend** — web UI (port 3000)
+
+4. **Wait for health checks** (about 1–2 minutes). Then open:
+   - **Application (UI):** http://localhost:3000  
+   - **API Gateway:** http://localhost:8080  
+
+5. **Optional – run only backend** (databases + services, no frontend container):
+   ```bash
+   docker compose -f docker-compose.images.yml up -d user-db match-db redis eureka-service auth-service user-service match-service api-gateway
+   ```
+   Then run the frontend locally: `cd frontend && npm ci && npm run dev` → http://localhost:5173 .
+
+#### Option 2: Run without cloning (Docker Hub images only)
+
+If you only have the Compose file (e.g. you copied `docker-compose.images.yml` from the repo):
+
+1. Save `docker-compose.images.yml` in a folder (see repo for full file contents).
+2. In that folder, pull and start:
+   ```bash
+   docker compose -f docker-compose.images.yml pull
+   docker compose -f docker-compose.images.yml up -d
+   ```
+3. Open http://localhost:3000 when services are healthy.
+
+**Note:** MySQL and Redis are pulled from Docker Hub automatically; only the six IndiChess images need to be from `kathulavikasreddy/indichess-*`.
+
+---
+
+#### Ports and services
+
+| Port | Service        | Purpose                    |
+|------|----------------|----------------------------|
+| 3000 | frontend       | Web UI                     |
+| 8080 | api-gateway    | REST API and WebSocket     |
+| 8081 | user-service   | Users, auth, profile       |
+| 8082 | match-service  | Matchmaking, games, ratings|
+| 8089 | auth-service   | Auth                       |
+| 8761 | eureka-service | Service discovery          |
+| 3307 | user-db        | User MySQL (host)          |
+| 3308 | match-db       | Match MySQL (host)         |
+| 6379 | redis          | Matchmaking queue          |
+
+---
+
+#### Customization (optional)
+
+- **JWT secret:** In `docker-compose.images.yml`, change `JWT_SECRET` in **auth-service**, **user-service**, and **api-gateway** to the same value (min 32 characters).
+- **OAuth (Google):** In **user-service**, set `OAUTH2_REDIRECT_URI` and `OAUTH2_FRONTEND_REDIRECT` to your frontend URL (e.g. `http://localhost:3000/...`).
+
+---
+
+#### Stop and remove
+
 ```bash
-docker pull kathulavikasreddy/indichess-eureka-service:latest
-docker pull kathulavikasreddy/indichess-auth-service:latest
-docker pull kathulavikasreddy/indichess-user-service:latest
-docker pull kathulavikasreddy/indichess-match-service:latest
-docker pull kathulavikasreddy/indichess-api-gateway:latest
-docker pull kathulavikasreddy/indichess-frontend:latest
+docker compose -f docker-compose.images.yml down
 ```
 
-Profile: [hub.docker.com/u/kathulavikasreddy](https://hub.docker.com/u/kathulavikasreddy)
+To also remove database volumes (resets all data):
+
+```bash
+docker compose -f docker-compose.images.yml down -v
+```
 
 ---
 
