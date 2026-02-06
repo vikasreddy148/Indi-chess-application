@@ -13,6 +13,7 @@ IndiChess is a full-stack online chess platform built with a **microservices arc
 - [WebSocket API](#websocket-api)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
+- [Docker Hub images](#docker-hub-images)
 - [Kubernetes Deployment](#kubernetes-deployment)
 - [Development](#development)
 - [Testing](#testing)
@@ -357,6 +358,47 @@ All HTTP APIs are exposed via the **API Gateway** at port **8080**. The gateway 
 
 ---
 
+## Docker Hub images
+
+### Run with Docker
+
+From the project root, start the full stack (databases, Redis, and all services). Compose will build images from source if they are not present; to use pre-built images instead, pull them first (see below).
+
+```bash
+cd Indi-chess-application
+docker compose up -d
+```
+
+- **Frontend:** http://localhost:3000  
+- **API Gateway:** http://localhost:8080  
+
+### Pre-built images (Docker Hub)
+
+Images are published on Docker Hub. Pull and use them for deployment (e.g. Kubernetes or another host):
+
+| Service      | Image | Link |
+|-------------|-------|------|
+| Eureka      | `kathulavikasreddy/indichess-eureka-service:latest` | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-eureka-service) |
+| Auth        | `kathulavikasreddy/indichess-auth-service:latest`  | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-auth-service) |
+| User        | `kathulavikasreddy/indichess-user-service:latest` | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-user-service) |
+| Match       | `kathulavikasreddy/indichess-match-service:latest` | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-match-service) |
+| API Gateway | `kathulavikasreddy/indichess-api-gateway:latest`   | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-api-gateway) |
+| Frontend    | `kathulavikasreddy/indichess-frontend:latest`      | [Docker Hub](https://hub.docker.com/r/kathulavikasreddy/indichess-frontend) |
+
+**Pull all:**
+```bash
+docker pull kathulavikasreddy/indichess-eureka-service:latest
+docker pull kathulavikasreddy/indichess-auth-service:latest
+docker pull kathulavikasreddy/indichess-user-service:latest
+docker pull kathulavikasreddy/indichess-match-service:latest
+docker pull kathulavikasreddy/indichess-api-gateway:latest
+docker pull kathulavikasreddy/indichess-frontend:latest
+```
+
+Profile: [hub.docker.com/u/kathulavikasreddy](https://hub.docker.com/u/kathulavikasreddy)
+
+---
+
 ## Kubernetes Deployment
 
 Manifests in `k8s/` deploy the full stack (DBs, Redis, config-service, user-service, match-service, api-gateway, frontend) and an Ingress:
@@ -404,6 +446,5 @@ Use the same `JWT_SECRET` and DB/Redis URLs as in docker-compose when running lo
 ---
 
 ## License & Author
-
 - **License:** MIT  
 - **Author:** Vikas Reddy  
