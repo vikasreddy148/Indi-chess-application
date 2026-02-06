@@ -64,3 +64,8 @@ logging:
     com.indichess.user: DEBUG
     org.springframework.security: DEBUG
     org.flywaydb: DEBUG
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

@@ -44,10 +44,15 @@ feign:
         connectTimeout: 5000
         readTimeout: 5000
   user-service:
-    url: ${USER_SERVICE_URL:http://localhost:8081}
+    url: ${USER_SERVICE_URL:http://user-service:8081}
 
 logging:
   level:
     root: INFO
     com.indichess.match: DEBUG
     org.springframework.web.socket: DEBUG
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

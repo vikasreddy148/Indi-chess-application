@@ -1,4 +1,44 @@
 services:
+  eureka-service:
+    build:
+      context: ./backend
+      dockerfile: eureka-service/Dockerfile
+    container_name: indichess-eureka-service
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: auth-service/Dockerfile
+    container_name: indichess-auth-service
+    ports:
+      - "8089:8089"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8761/eureka/
+      - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+    networks:
+      - indichess-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8089/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   user-service:
     build:
       context: ./backend
@@ -14,8 +54,11 @@ services:
       - JWT_TTL_SECONDS=18000
       - OAUTH2_REDIRECT_URI=http://localhost:3000/login/oauth2/code/google
       - OAUTH2_FRONTEND_REDIRECT=http://localhost:3000/oauth/callback
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8761/eureka/
     depends_on:
       user-db:
+        condition: service_healthy
+      eureka-service:
         condition: service_healthy
     restart: on-failure
     networks:
@@ -42,10 +85,13 @@ services:
       - REDIS_PORT=6379
       - USER_SERVICE_URL=http://user-service:8081
       - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8761/eureka/
     depends_on:
       match-db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      eureka-service:
         condition: service_healthy
     restart: on-failure
     networks:
@@ -57,25 +103,6 @@ services:
       retries: 5
       start_period: 60s
 
-  config-service:
-    build:
-      context: ./backend
-      dockerfile: config-service/Dockerfile
-    container_name: indichess-config-service
-    ports:
-      - "8888:8888"
-    restart: on-failure
-    environment:
-      - SPRING_PROFILES_ACTIVE=native
-    networks:
-      - indichess-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
   api-gateway:
     build:
       context: ./backend
@@ -84,13 +111,16 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - USER_SERVICE_URL=http://user-service:8081
-      - MATCH_SERVICE_URL=http://match-service:8082
+      - USER_SERVICE_URL=lb://USER-SERVICE
+      - MATCH_SERVICE_URL=lb://MATCH-SERVICE
       - JWT_SECRET=change-me-change-me-change-me-change-me-32chars-min
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8761/eureka/
     depends_on:
       user-service:
         condition: service_healthy
       match-service:
+        condition: service_healthy
+      eureka-service:
         condition: service_healthy
     restart: on-failure
     networks:
